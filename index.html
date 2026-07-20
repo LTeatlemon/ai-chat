@@ -80,6 +80,9 @@
         .input-area textarea { flex:1; padding:12px 16px; border-radius:var(--radius-lg); border:1.5px solid #e0e3e8; resize:none; font-family:inherit; font-size:14px; }
         .send-btn { width:44px; height:44px; border-radius:50%; background:var(--accent); color:#fff; border:none; cursor:pointer; font-size:18px; display:flex; align-items:center; justify-content:center; }
         .send-btn:disabled { background:#ccc; cursor:not-allowed; }
+        .upload-btn { width:40px; height:40px; border-radius:50%; background:#f0f1f5; border:1.5px solid #e0e3e8; cursor:pointer; font-size:20px; display:flex; align-items:center; justify-content:center; transition:all var(--transition); }
+        .upload-btn:hover { background:#e5e7eb; }
+        #fileInput { display:none; }
         
         /* 汉堡菜单 */
         #hamburgerBtn {
@@ -170,6 +173,8 @@
             <div style="text-align:center; color:#aaa; margin-top:40px;">💬 选择或创建一个智能体开始聊天</div>
         </div>
         <div class="input-area">
+            <button class="upload-btn" id="uploadBtn" title="上传文件或图片">📎</button>
+            <input type="file" id="fileInput" accept=".txt,.md,.json,.csv,.pdf,.png,.jpg,.jpeg,.gif,.webp" multiple>
             <textarea id="messageInput" placeholder="输入消息... (Enter发送)" rows="1" disabled></textarea>
             <button class="send-btn" id="sendBtn" disabled>➤</button>
         </div>
@@ -194,7 +199,7 @@
 
     <script>
         (function() {
-            // IndexedDB 封装
+            // ==================== IndexedDB 封装 ====================
             const DB_NAME = 'AiChatDB';
             const STORE = 'state';
             function openDB() {
@@ -224,10 +229,18 @@
                 });
             }
 
+            // ==================== 全局状态 ====================
             const state = {
-                apiKey: '', globalPrompt: '', agents: [], currentAgentId: null,
-                conversations: {}, isStreaming: false, editingAgentId: null, abortController: null,
+                apiKey: '',
+                globalPrompt: '',
+                agents: [],
+                currentAgentId: null,
+                conversations: {},
+                isStreaming: false,
+                editingAgentId: null,
+                abortController: null,
             };
+            let pendingFiles = []; // 待发送的文件/图片
 
             const $ = id => document.getElementById(id);
             
@@ -239,6 +252,7 @@
                 setTimeout(() => t.remove(), 3000);
             }
 
+            // ==================== 数据持久化 ====================
             async function saveAll() {
                 await Promise.all([
                     dbSet('apiKey', state.apiKey),
@@ -281,6 +295,7 @@
                 saveAll();
             }
 
+            // ==================== UI 更新 ====================
             function updateUI() {
                 $('apiKeyInput').value = state.apiKey;
                 $('globalPromptInput').value = state.globalPrompt;
@@ -347,6 +362,38 @@
                 return div.innerHTML;
             }
 
+            // ==================== 摘要记忆优化 ====================
+            async function summarizeOldMessages(messages, keepRecent = 6) {
+                if (messages.length <= keepRecent) return messages;
+                const oldMessages = messages.slice(0, messages.length - keepRecent);
+                const recentMessages = messages.slice(messages.length - keepRecent);
+                const oldText = oldMessages.map(m => `${m.role}: ${m.content}`).join('\n');
+                try {
+                    const resp = await fetch('https://api.deepseek.com/chat/completions', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.apiKey}` },
+                        body: JSON.stringify({
+                            model: 'deepseek-chat',
+                            messages: [
+                                { role: 'system', content: '请将以下对话历史压缩为一段简洁的摘要，保留关键信息和用户需求。' },
+                                { role: 'user', content: oldText }
+                            ],
+                            stream: false,
+                            temperature: 0.3,
+                            max_tokens: 500
+                        })
+                    });
+                    if (resp.ok) {
+                        const data = await resp.json();
+                        const summary = data.choices[0].message.content.trim();
+                        const summaryMsg = { role: 'system', content: `[对话历史摘要] ${summary}` };
+                        return [summaryMsg, ...recentMessages];
+                    }
+                } catch (e) { console.warn('摘要生成失败', e); }
+                return recentMessages; // 退回只保留最近消息
+            }
+
+            // ==================== 导出/导入 ====================
             function exportData() {
                 const data = {
                     apiKey: state.apiKey,
@@ -390,13 +437,30 @@
                 reader.readAsText(file);
             }
 
+            // ==================== 核心聊天逻辑（含时间注入、摘要记忆、文件处理） ====================
             async function sendMessage() {
                 if (state.isStreaming || !state.apiKey || !state.currentAgentId) return;
                 const input = $('messageInput');
                 const content = input.value.trim();
-                if (!content) return;
+                if (!content && !pendingFiles.length) return;
+
+                // 处理文件
+                let finalContent = content;
+                if (pendingFiles.length > 0) {
+                    const fileParts = [];
+                    for (const f of pendingFiles) {
+                        if (f.type === 'image') {
+                            fileParts.push(`[用户上传的图片: ${f.name}，Base64数据长度: ${f.dataUrl.length} 字符。如需识别图片内容，请切换到视觉模型。]`);
+                        } else {
+                            fileParts.push(`[文件 ${f.name} 的内容开始]\n${f.content}\n[文件 ${f.name} 内容结束]`);
+                        }
+                    }
+                    finalContent = `${content}\n\n${fileParts.join('\n\n')}`;
+                    pendingFiles = []; // 清空
+                }
+
                 const msgs = getMsgs();
-                msgs.push({ role: 'user', content });
+                msgs.push({ role: 'user', content: finalContent });
                 setMsgs(msgs);
                 input.value = '';
                 input.style.height = 'auto';
@@ -406,10 +470,21 @@
                 state.abortController = new AbortController();
                 updateUI();
 
+                // 注入时间
                 const now = new Date();
                 const timeHint = `当前时间：${now.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}（北京时间）。请根据此时间回答，但不要在回复中直接提及此时间信息。`;
+
+                // 摘要记忆优化
+                let processedMsgs = msgs;
+                if (msgs.length > 10) {
+                    processedMsgs = await summarizeOldMessages(msgs, 6);
+                }
+
                 const system = [timeHint, state.globalPrompt, getAgent()?.surfacePrompt || ''].filter(Boolean).join('\n\n');
-                const apiMsgs = [{ role: 'system', content: system || '你是一个有帮助的AI。' }, ...msgs.map(m => ({ role: m.role, content: m.content }))];
+                const apiMsgs = [
+                    { role: 'system', content: system || '你是一个有帮助的AI。' },
+                    ...processedMsgs.map(m => ({ role: m.role, content: m.content }))
+                ];
 
                 const container = $('messagesContainer');
                 const streamDiv = document.createElement('div');
@@ -476,8 +551,17 @@
 
                 const now = new Date();
                 const timeHint = `当前时间：${now.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}（北京时间）。请根据此时间回答，但不要在回复中直接提及此时间信息。`;
+
+                let processedMsgs = msgs;
+                if (msgs.length > 10) {
+                    processedMsgs = await summarizeOldMessages(msgs, 6);
+                }
+
                 const system = [timeHint, state.globalPrompt, getAgent()?.surfacePrompt || ''].filter(Boolean).join('\n\n');
-                const apiMsgs = [{ role: 'system', content: system || '你是一个有帮助的AI。' }, ...msgs.map(m => ({ role: m.role, content: m.content }))];
+                const apiMsgs = [
+                    { role: 'system', content: system || '你是一个有帮助的AI。' },
+                    ...processedMsgs.map(m => ({ role: m.role, content: m.content }))
+                ];
 
                 state.isStreaming = true;
                 state.abortController = new AbortController();
@@ -551,6 +635,35 @@
                 }
             }
 
+            // ==================== 文件上传处理 ====================
+            $('uploadBtn').onclick = () => $('fileInput').click();
+
+            $('fileInput').onchange = async (e) => {
+                const files = Array.from(e.target.files);
+                if (!files.length) return;
+                pendingFiles = [];
+                $('messageInput').value = '';
+
+                for (const file of files) {
+                    if (file.type.startsWith('image/')) {
+                        const reader = new FileReader();
+                        const dataUrl = await new Promise(resolve => {
+                            reader.onload = () => resolve(reader.result);
+                            reader.readAsDataURL(file);
+                        });
+                        pendingFiles.push({ type: 'image', name: file.name, size: file.size, dataUrl });
+                    } else {
+                        const text = await file.text();
+                        pendingFiles.push({ type: 'file', name: file.name, content: text.slice(0, 10000) });
+                    }
+                }
+
+                const fileList = pendingFiles.map(f => f.type === 'image' ? `[图片: ${f.name}]` : `[文件: ${f.name}]`).join(', ');
+                $('messageInput').value = `发送文件：${fileList}\n(你可以额外输入文字说明)`;
+                $('messageInput').focus();
+            };
+
+            // ==================== 事件绑定 ====================
             $('sendBtn').onclick = sendMessage;
             $('messageInput').onkeydown = e => {
                 if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
@@ -601,9 +714,7 @@
                 if (e.target.files[0]) importData(e.target.files[0]);
                 e.target.value = '';
             };
-            $('hamburgerBtn').onclick = () => {
-                $('sidebar').classList.toggle('open');
-            };
+            $('hamburgerBtn').onclick = () => $('sidebar').classList.toggle('open');
             document.querySelector('.main-content').addEventListener('click', (e) => {
                 if (window.innerWidth <= 768 && $('sidebar').classList.contains('open')) {
                     if (!e.target.closest('#hamburgerBtn') && !e.target.closest('.sidebar')) {
@@ -612,6 +723,7 @@
                 }
             });
 
+            // PWA
             if ('serviceWorker' in navigator) {
                 window.addEventListener('load', () => {
                     navigator.serviceWorker.register('service-worker.js')
@@ -620,6 +732,7 @@
                 });
             }
 
+            // 初始化
             (async () => {
                 await loadAll();
                 updateUI();
