@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 聊天平台 - DeepSeek</title>
+    
+    <!-- PWA 元数据 -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="AI聊天">
+    <meta name="theme-color" content="#6366f1">
+    
+    <style>
+        :root {
+            --bg-primary: #f5f6f8;
+            --bg-sidebar: #1e1f2a;
+            --bg-chat: #ffffff;
+            --bg-input-area: #ffffff;
+            --text-primary: #1a1a2e;
+            --text-secondary: #6b7280;
+            --text-sidebar: #c8c9d4;
+            --accent: #6366f1;
+            --accent-hover: #5558e6;
+            --user-bubble: #6366f1;
+            --user-bubble-text: #ffffff;
+            --ai-bubble: #f1f3f6;
+            --ai-bubble-text: #1a1a2e;
+            --border: #e5e7eb;
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 18px;
+            --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.15);
+            --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family: 'Segoe UI', 'PingFang SC', system-ui, sans-serif; background:var(--bg-primary); height:100vh; display:flex; color:var(--text-primary); }
+        .sidebar { width:340px; min-width:340px; height:100vh; background:var(--bg-sidebar); display:flex; flex-direction:column; color:var(--text-sidebar); z-index:20; box-shadow:var(--shadow-lg); transition:transform var(--transition); }
+        .sidebar-header { padding:20px 22px; border-bottom:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; gap:12px; }
+        .sidebar-header .logo-icon { width:38px; height:38px; border-radius:var(--radius-sm); background:linear-gradient(135deg,#6366f1,#8b5cf6); display:flex; align-items:center; justify-content:center; font-size:20px; }
+        .sidebar-header .logo-text { font-weight:700; font-size:17px; color:#e8e9f2; }
+        .sidebar-scroll { flex:1; overflow-y:auto; padding:16px 14px; display:flex; flex-direction:column; gap:16px; }
+        .sidebar-section { background:rgba(255,255,255,0.03); border-radius:var(--radius-md); padding:14px 16px; border:1px solid rgba(255,255,255,0.05); }
+        .sidebar-section-title { font-size:11px; text-transform:uppercase; letter-spacing:1.2px; color:#8b8d9e; margin-bottom:10px; font-weight:600; }
+        .sidebar label { font-size:12px; color:#a0a2b4; display:block; margin-bottom:5px; }
+        .sidebar input, .sidebar textarea { width:100%; padding:10px 12px; border-radius:var(--radius-sm); border:1px solid rgba(255,255,255,0.12); background:rgba(0,0,0,0.25); color:#e0e1ea; font-size:13px; resize:vertical; outline:none; }
+        .sidebar textarea { min-height:70px; }
+        .btn { padding:10px 16px; border-radius:var(--radius-sm); border:none; cursor:pointer; font-size:13px; font-weight:600; transition:all var(--transition); display:inline-flex; align-items:center; gap:6px; }
+        .btn-primary { background:var(--accent); color:#fff; }
+        .btn-primary:hover { background:var(--accent-hover); }
+        .btn-outline { background:transparent; border:1px solid rgba(255,255,255,0.2); color:#d0d1de; }
+        .agent-list { list-style:none; display:flex; flex-direction:column; gap:6px; }
+        .agent-item { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:var(--radius-sm); cursor:pointer; border:1px solid transparent; background:rgba(255,255,255,0.02); }
+        .agent-item.active { background:rgba(99,102,241,0.2); border-color:rgba(99,102,241,0.5); }
+        .agent-item .agent-avatar { width:34px; height:34px; border-radius:50%; background:linear-gradient(135deg,#6366f1,#a78bfa); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; }
+        .main-content { flex:1; display:flex; flex-direction:column; height:100vh; background:var(--bg-chat); }
+        .chat-toolbar { display:flex; align-items:center; gap:8px; padding:10px 20px; border-bottom:1px solid var(--border); background:#fafbfc; }
+        .messages-container { flex:1; overflow-y:auto; padding:20px 24px; display:flex; flex-direction:column; gap:16px; background:#fdfdfe; }
+        .message { display:flex; gap:10px; max-width:85%; }
+        .message.user { align-self:flex-end; flex-direction:row-reverse; }
+        .message.assistant { align-self:flex-start; }
+        .msg-bubble { padding:12px 16px; border-radius:var(--radius-lg); line-height:1.6; font-size:14px; }
+        .message.user .msg-bubble { background:var(--user-bubble); color:var(--user-bubble-text); }
+        .message.assistant .msg-bubble { background:var(--ai-bubble); color:var(--ai-bubble-text); border:1px solid #e9ebf0; }
+        .input-area { padding:14px 20px; border-top:1px solid var(--border); display:flex; gap:10px; align-items:flex-end; }
+        .input-area textarea { flex:1; padding:12px 16px; border-radius:var(--radius-lg); border:1.5px solid #e0e3e8; resize:none; font-family:inherit; }
+        .toast-container { position:fixed; top:20px; right:20px; z-index:200; }
+        .toast { padding:12px 18px; border-radius:var(--radius-sm); color:#fff; font-size:13px; margin-bottom:8px; }
+        .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:100; display:flex; align-items:center; justify-content:center; }
+        .modal { background:#fff; border-radius:var(--radius-md); padding:24px; width:90%; max-width:500px; }
+        .import-btn { cursor:pointer; display:inline-block; background:var(--accent); color:#fff; padding:8px 14px; border-radius:6px; font-size:13px; font-weight:500; transition:all var(--transition); }
+        .import-btn:hover { background:var(--accent-hover); }
+        @media (max-width:768px) { .sidebar { position:fixed; transform:translateX(-100%); } .sidebar.open { transform:translateX(0); } }
+    </style>
+</head>
+<body>
+    <button id="hamburgerBtn" style="display:none; position:absolute; top:12px; left:12px; z-index:30;">☰</button>
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header"><div class="logo-icon">🤖</div><span class="logo-text">AI 聊天平台</span></div>
+        <div class="sidebar-scroll">
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">API 设置</div>
+                <label>DeepSeek API Key</label>
+                <div style="position:relative;">
+                    <input type="password" id="apiKeyInput" placeholder="sk-...">
+                    <button id="toggleApiKeyVis" style="position:absolute; right:10px; top:50%; transform:translateY(-50%); background:none; border:none; color:#8b8d9e; cursor:pointer;">👁️</button>
+                </div>
+            </div>
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">底层提示词（全局）</div>
+                <textarea id="globalPromptInput" placeholder="例如：你是一个乐于助人的AI..."></textarea>
+            </div>
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">我的智能体</div>
+                <ul class="agent-list" id="agentList"></ul>
+                <button class="btn btn-outline" id="createAgentBtn" style="margin-top:10px; width:100%;">➕ 创建新智能体</button>
+            </div>
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">数据管理</div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <button class="btn btn-outline" id="exportBtn" style="flex:1;">⬇️ 导出数据</button>
+                    <label for="importFileInput" class="import-btn" style="flex:1; text-align:center;">⬆️ 导入数据</label>
+                    <input type="file" id="importFileInput" accept=".json" style="display:none;">
+                </div>
+            </div>
+        </div>
+    </aside>
+    <div class="main-content">
+        <div class="chat-toolbar">
+            <span style="font-weight:700; margin-right:auto;"><span id="currentAgentName">加载中...</span></span>
+            <button class="btn" id="regenerateBtn">🔄 重新生成</button>
+            <button class="btn" id="undoBtn">↩️ 撤回</button>
+            <button class="btn" id="restartChatBtn">🗑️ 重启对话</button>
+        </div>
+        <div class="messages-container" id="messagesContainer"><div class="empty-state">💬 选择智能体开始对话</div></div>
+        <div class="input-area">
+            <textarea id="messageInput" placeholder="输入消息..." rows="1" disabled></textarea>
+            <button id="sendBtn" class="btn-primary" style="border-radius:50%; width:44px; height:44px;" disabled>➤</button>
+        </div>
+    </div>
+    <div class="modal-overlay" id="agentModalOverlay" style="display:none;">
+        <div class="modal">
+            <h3 id="agentModalTitle">创建智能体</h3>
+            <label>名称</label><input type="text" id="agentNameInput" style="width:100%; margin-bottom:12px;">
+            <label>表层提示词（人设）</label><textarea id="agentPromptInput" rows="4" style="width:100%;"></textarea>
+            <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:20px;">
+                <button class="btn" id="cancelAgentBtn">取消</button>
+                <button class="btn btn-primary" id="saveAgentBtn">保存</button>
+            </div>
+        </div>
+    </div>
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script>
+        (function() {
+            // IndexedDB 封装
+            const DB_NAME = 'AiChatDB';
+            const STORE = 'state';
+            function openDB() {
+                return new Promise((resolve, reject) => {
+                    const req = indexedDB.open(DB_NAME, 1);
+                    req.onupgradeneeded = e => { if (!e.target.result.objectStoreNames.contains(STORE)) e.target.result.createObjectStore(STORE); };
+                    req.onsuccess = e => resolve(e.target.result);
+                    req.onerror = e => reject(e.target.error);
+                });
+            }
+            async function dbSet(key, val) {
+                const db = await openDB();
+                return new Promise((resolve, reject) => {
+                    const tx = db.transaction(STORE, 'readwrite');
+                    tx.objectStore(STORE).put(val, key);
+                    tx.oncomplete = resolve;
+                    tx.onerror = () => reject(tx.error);
+                });
+            }
+            async function dbGet(key) {
+                const db = await openDB();
+                return new Promise((resolve, reject) => {
+                    const tx = db.transaction(STORE, 'readonly');
+                    const req = tx.objectStore(STORE).get(key);
+                    req.onsuccess = () => resolve(req.result);
+                    req.onerror = () => reject(req.error);
+                });
+            }
+
+            // 状态
+            const state = {
+                apiKey: '', globalPrompt: '', agents: [], currentAgentId: null,
+                conversations: {}, isStreaming: false, editingAgentId: null, abortController: null,
+            };
+
+            function toast(msg, type='info') {
+                const t = document.createElement('div');
+                t.className = `toast ${type}`; t.textContent = msg;
+                document.getElementById('toastContainer').appendChild(t);
+                setTimeout(() => t.remove(), 3000);
+            }
+
+            async function saveAll() {
+                await Promise.all([
+                    dbSet('apiKey', state.apiKey),
+                    dbSet('globalPrompt', state.globalPrompt),
+                    dbSet('agents', state.agents),
+                    dbSet('currentAgentId', state.currentAgentId),
+                    dbSet('conversations', state.conversations),
+                ]).catch(e => { toast('保存失败: ' + e.message, 'error'); });
+            }
+
+            async function loadAll() {
+                const [apiKey, globalPrompt, agents, currentAgentId, conversations] = await Promise.all([
+                    dbGet('apiKey'), dbGet('globalPrompt'), dbGet('agents'), dbGet('currentAgentId'), dbGet('conversations')
+                ]);
+                state.apiKey = apiKey || '';
+                state.globalPrompt = globalPrompt || '';
+                state.agents = agents || [];
+                state.currentAgentId = currentAgentId || null;
+                state.conversations = conversations || {};
+                if (!state.agents.length) {
+                    const def = { id: 'agent_'+Date.now(), name: '通用助手', surfacePrompt: '你是一个乐于助人的AI助手。', createdAt: new Date().toISOString() };
+                    state.agents = [def];
+                    state.currentAgentId = def.id;
+                    state.conversations[def.id] = [];
+                    await saveAll();
+                }
+                if (!state.agents.find(a => a.id === state.currentAgentId)) state.currentAgentId = state.agents[0]?.id || null;
+                if (!state.currentAgentId && state.agents.length) state.currentAgentId = state.agents[0].id;
+                state.agents.forEach(a => { if (!state.conversations[a.id]) state.conversations[a.id] = []; });
+            }
+
+            function getAgent() { return state.agents.find(a => a.id === state.currentAgentId); }
+            function getMsgs() { return state.currentAgentId ? (state.conversations[state.currentAgentId] || []) : []; }
+            function setMsgs(msgs) {
+                if (!state.currentAgentId) return;
+                state.conversations[state.currentAgentId] = msgs;
+                saveAll();
+            }
+
+            function renderAgentList() {
+                const list = document.getElementById('agentList');
+                list.innerHTML = '';
+                state.agents.forEach(a => {
+                    const li = document.createElement('li');
+                    li.className = 'agent-item' + (a.id === state.currentAgentId ? ' active' : '');
+                    li.innerHTML = `<div class="agent-avatar">${a.name[0]}</div><div style="flex:1"><b>${a.name}</b><br><small>${a.surfacePrompt.slice(0,20)}</small></div>`;
+                    li.onclick = (e) => {
+                        if (e.target.tagName === 'BUTTON') return;
+                        if (state.isStreaming) { toast('正在生成回复，请等待', 'info'); return; }
+                        state.currentAgentId = a.id;
+                        saveAll().then(updateUI);
+                    };
+                    const delBtn = document.createElement('button'); delBtn.textContent='🗑️'; delBtn.onclick = (e) => { e.stopPropagation(); deleteAgent(a.id); };
+                    li.appendChild(delBtn);
+                    list.appendChild(li);
+                });
+            }
+
+            function deleteAgent(id) {
+                if (state.agents.length <= 1) return toast('至少保留一个智能体', 'error');
+                if (!confirm('确定删除？')) return;
+                state.agents = state.agents.filter(a => a.id !== id);
+                delete state.conversations[id];
+                if (state.currentAgentId === id) state.currentAgentId = state.agents[0].id;
+                saveAll().then(updateUI);
+            }
+
+            function renderMessages() {
+                const container = document.getElementById('messagesContainer');
+                const msgs = getMsgs();
+                container.innerHTML = msgs.length ? '' : '<div class="empty-state">💬 开始对话吧</div>';
+                msgs.forEach(m => {
+                    const div = document.createElement('div');
+                    div.className = `message ${m.role}`;
+                    div.innerHTML = `<div class="msg-bubble">${m.content}</div>`;
+                    container.appendChild(div);
+                });
+                container.scrollTop = container.scrollHeight;
+            }
+
+            function updateUI() {
+                document.getElementById('apiKeyInput').value = state.apiKey;
+                document.getElementById('globalPromptInput').value = state.globalPrompt;
+                const agent = getAgent();
+                document.getElementById('currentAgentName').textContent = agent ? agent.name : '未选择';
+                renderAgentList();
+                renderMessages();
+                const can = state.apiKey && state.currentAgentId && !state.isStreaming;
+                document.getElementById('messageInput').disabled = !can;
+                document.getElementById('sendBtn').disabled = !can;
+            }
+
+            // 导出功能
+            function exportData() {
+                const exportObj = {
+                    apiKey: state.apiKey,
+                    globalPrompt: state.globalPrompt,
+                    agents: state.agents,
+                    currentAgentId: state.currentAgentId,
+                    conversations: state.conversations,
+                    exportedAt: new Date().toISOString(),
+                };
+                const jsonStr = JSON.stringify(exportObj, null, 2);
+                const blob = new Blob([jsonStr], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `ai_chat_backup_${new Date().toISOString().slice(0,10)}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                toast('数据已导出！请保存好文件', 'success');
+            }
+
+            // 导入功能
+            function importData(file) {
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        if (!data.agents || !data.conversations) throw new Error('文件格式不正确');
+                        if (!confirm('导入数据将覆盖当前所有内容，确定继续吗？')) return;
+                        state.apiKey = data.apiKey || '';
+                        state.globalPrompt = data.globalPrompt || '';
+                        state.agents = data.agents;
+                        state.conversations = data.conversations;
+                        state.currentAgentId = data.currentAgentId || (data.agents[0]?.id || null);
+                        state.agents.forEach(a => { if (!state.conversations[a.id]) state.conversations[a.id] = []; });
+                        await saveAll();
+                        updateUI();
+                        toast('数据导入成功！页面已更新', 'success');
+                    } catch (err) {
+                        toast('导入失败：' + err.message, 'error');
+                    }
+                };
+                reader.readAsText(file);
+            }
+
+            // 聊天发送逻辑
+            async function sendMessage() {
+                if (state.isStreaming || !state.apiKey || !state.currentAgentId) return;
+                const input = document.getElementById('messageInput');
+                const content = input.value.trim();
+                if (!content) return;
+                const msgs = getMsgs();
+                msgs.push({ role: 'user', content });
+                setMsgs(msgs);
+                input.value = '';
+                updateUI();
+
+                state.isStreaming = true;
+                state.abortController = new AbortController();
+                updateUI();
+                const system = [state.globalPrompt, getAgent()?.surfacePrompt || ''].filter(Boolean).join('\n\n');
+                const apiMsgs = [{ role: 'system', content: system || '你是一个有帮助的AI。' }, ...msgs.map(m => ({ role: m.role, content: m.content }))];
+
+                const container = document.getElementById('messagesContainer');
+                const streamDiv = document.createElement('div');
+                streamDiv.className = 'message assistant';
+                streamDiv.innerHTML = '<div class="msg-bubble"><span class="stream-content"></span><span class="cursor">|</span></div>';
+                container.appendChild(streamDiv);
+                container.scrollTop = container.scrollHeight;
+
+                try {
+                    const resp = await fetch('https://api.deepseek.com/chat/completions', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.apiKey}` },
+                        body: JSON.stringify({ model: 'deepseek-chat', messages: apiMsgs, stream: true }),
+                        signal: state.abortController.signal,
+                    });
+                    if (!resp.ok) throw new Error((await resp.json()).error?.message || `HTTP ${resp.status}`);
+                    const reader = resp.body.getReader();
+                    const decoder = new TextDecoder();
+                    let full = '', buffer = '';
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        buffer += decoder.decode(value, { stream: true });
+                        const lines = buffer.split('\n');
+                        buffer = lines.pop() || '';
+                        for (const line of lines) {
+                            if (!line.trim() || !line.startsWith('data:')) continue;
+                            const data = line.slice(5).trim();
+                            if (data === '[DONE]') continue;
+                            try {
+                                const j = JSON.parse(data);
+                                full += j.choices?.[0]?.delta?.content || '';
+                                streamDiv.querySelector('.stream-content').textContent = full;
+                                container.scrollTop = container.scrollHeight;
+                            } catch (e) {}
+                        }
+                    }
+                    streamDiv.querySelector('.cursor').remove();
+                    streamDiv.querySelector('.msg-bubble').textContent = full;
+                    const updatedMsgs = getMsgs();
+                    updatedMsgs.push({ role: 'assistant', content: full });
+                    setMsgs(updatedMsgs);
+                } catch (e) {
+                    streamDiv.remove();
+                    if (e.name !== 'AbortError') toast('错误: ' + e.message, 'error');
+                } finally {
+                    state.isStreaming = false;
+                    state.abortController = null;
+                    updateUI();
+                }
+            }
+
+            // 重新生成
+            async function regenerate() {
+                if (state.isStreaming) return;
+                const msgs = getMsgs();
+                if (msgs.length && msgs[msgs.length-1].role === 'assistant') msgs.pop();
+                if (!msgs.length || msgs[msgs.length-1].role !== 'user') return;
+                setMsgs(msgs);
+                updateUI();
+                // 复用发送逻辑的后半段
+                const system = [state.globalPrompt, getAgent()?.surfacePrompt || ''].filter(Boolean).join('\n\n');
+                const apiMsgs = [{ role: 'system', content: system || '你是一个有帮助的AI。' }, ...msgs.map(m => ({ role: m.role, content: m.content }))];
+                state.isStreaming = true;
+                state.abortController = new AbortController();
+                updateUI();
+                const container = document.getElementById('messagesContainer');
+                const streamDiv = document.createElement('div');
+                streamDiv.className = 'message assistant';
+                streamDiv.innerHTML = '<div class="msg-bubble"><span class="stream-content"></span><span class="cursor">|</span></div>';
+                container.appendChild(streamDiv);
+                try {
+                    const resp = await fetch('https://api.deepseek.com/chat/completions', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.apiKey}` },
+                        body: JSON.stringify({ model: 'deepseek-chat', messages: apiMsgs, stream: true }),
+                        signal: state.abortController.signal,
+                    });
+                    if (!resp.ok) throw new Error((await resp.json()).error?.message || `HTTP ${resp.status}`);
+                    const reader = resp.body.getReader();
+                    const decoder = new TextDecoder();
+                    let full = '', buffer = '';
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        buffer += decoder.decode(value, { stream: true });
+                        const lines = buffer.split('\n');
+                        buffer = lines.pop() || '';
+                        for (const line of lines) {
+                            if (!line.trim() || !line.startsWith('data:')) continue;
+                            const data = line.slice(5).trim();
+                            if (data === '[DONE]') continue;
+                            try {
+                                const j = JSON.parse(data);
+                                full += j.choices?.[0]?.delta?.content || '';
+                                streamDiv.querySelector('.stream-content').textContent = full;
+                                container.scrollTop = container.scrollHeight;
+                            } catch (e) {}
+                        }
+                    }
+                    streamDiv.querySelector('.cursor').remove();
+                    streamDiv.querySelector('.msg-bubble').textContent = full;
+                    const updated = getMsgs();
+                    updated.push({ role: 'assistant', content: full });
+                    setMsgs(updated);
+                } catch (e) {
+                    streamDiv.remove();
+                    if (e.name !== 'AbortError') toast('错误: ' + e.message, 'error');
+                } finally {
+                    state.isStreaming = false;
+                    state.abortController = null;
+                    updateUI();
+                }
+            }
+
+            function undo() {
+                if (state.isStreaming) { state.abortController?.abort(); return; }
+                const msgs = getMsgs();
+                if (!msgs.length) return;
+                msgs.pop();
+                setMsgs(msgs);
+                updateUI();
+                toast('已撤回一条消息', 'info');
+            }
+
+            function restartChat() {
+                if (state.isStreaming) { state.abortController?.abort(); setTimeout(restartChat, 200); return; }
+                if (!getMsgs().length) return toast('对话已经是空的', 'info');
+                if (confirm('清空当前对话？')) {
+                    setMsgs([]);
+                    updateUI();
+                    toast('对话已重启', 'success');
+                }
+            }
+
+            // 事件绑定
+            document.getElementById('sendBtn').onclick = sendMessage;
+            document.getElementById('messageInput').onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } };
+            document.getElementById('regenerateBtn').onclick = regenerate;
+            document.getElementById('undoBtn').onclick = undo;
+            document.getElementById('restartChatBtn').onclick = restartChat;
+            document.getElementById('apiKeyInput').oninput = e => { state.apiKey = e.target.value; saveAll(); updateUI(); };
+            document.getElementById('globalPromptInput').oninput = e => { state.globalPrompt = e.target.value; saveAll(); };
+            document.getElementById('toggleApiKeyVis').onclick = () => {
+                const el = document.getElementById('apiKeyInput');
+                el.type = el.type === 'password' ? 'text' : 'password';
+            };
+            document.getElementById('createAgentBtn').onclick = () => {
+                state.editingAgentId = null;
+                document.getElementById('agentNameInput').value = '';
+                document.getElementById('agentPromptInput').value = '';
+                document.getElementById('agentModalOverlay').style.display = 'flex';
+            };
+            document.getElementById('cancelAgentBtn').onclick = () => document.getElementById('agentModalOverlay').style.display = 'none';
+            document.getElementById('saveAgentBtn').onclick = async () => {
+                const name = document.getElementById('agentNameInput').value.trim();
+                const prompt = document.getElementById('agentPromptInput').value.trim();
+                if (!name) return toast('请输入名称', 'error');
+                if (state.editingAgentId) {
+                    const agent = state.agents.find(a => a.id === state.editingAgentId);
+                    if (agent) { agent.name = name; agent.surfacePrompt = prompt; }
+                } else {
+                    const newAgent = { id: 'agent_'+Date.now(), name, surfacePrompt: prompt, createdAt: new Date().toISOString() };
+                    state.agents.push(newAgent);
+                    state.conversations[newAgent.id] = [];
+                    state.currentAgentId = newAgent.id;
+                }
+                await saveAll();
+                document.getElementById('agentModalOverlay').style.display = 'none';
+                updateUI();
+                toast(state.editingAgentId ? '智能体已更新' : '智能体已创建', 'success');
+                state.editingAgentId = null;
+            };
+            document.getElementById('agentModalOverlay').onclick = e => { if (e.target === e.currentTarget) document.getElementById('agentModalOverlay').style.display = 'none'; };
+            document.getElementById('exportBtn').onclick = exportData;
+            document.getElementById('importFileInput').onchange = (e) => {
+                const file = e.target.files[0];
+                if (file) importData(file);
+                e.target.value = '';
+            };
+
+            // PWA: 注册 Service Worker
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', () => {
+                    navigator.serviceWorker.register('service-worker.js').then(reg => {
+                        console.log('Service Worker 注册成功', reg.scope);
+                    }).catch(err => {
+                        console.warn('Service Worker 注册失败', err);
+                    });
+                });
+            }
+
+            // 初始化
+            (async () => {
+                await loadAll();
+                updateUI();
+            })();
+        })();
+    </script>
+</body>
+</html>
