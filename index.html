@@ -332,7 +332,9 @@
                 state.isStreaming = true;
                 state.abortController = new AbortController();
                 updateUI();
-                const system = [state.globalPrompt, getAgent()?.surfacePrompt || ''].filter(Boolean).join('\n\n');
+                const system = [const now = new Date();
+                const timeHint = `当前时间：${now.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}（北京时间）。请根据此时间回答，但不要在回复中直接提及此时间信息。`;
+                const system = [timeHint, state.globalPrompt, getAgent()?.surfacePrompt || ''].filter(Boolean).join('\n\n');?.surfacePrompt || ''].filter(Boolean).join('\n\n');
                 const apiMsgs = [{ role: 'system', content: system || '你是一个有帮助的AI。' }, ...msgs.map(m => ({ role: m.role, content: m.content }))];
 
                 const container = document.getElementById('messagesContainer');
@@ -395,7 +397,9 @@
                 setMsgs(msgs);
                 updateUI();
                 // 复用发送逻辑的后半段
-                const system = [state.globalPrompt, getAgent()?.surfacePrompt || ''].filter(Boolean).join('\n\n');
+                const system = [const now = new Date();
+                const timeHint = `当前时间：${now.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}（北京时间）。请根据此时间回答，但不要在回复中直接提及此时间信息。`;
+                const system = [timeHint, state.globalPrompt, getAgent()?.surfacePrompt || ''].filter(Boolean).join('\n\n');?.surfacePrompt || ''].filter(Boolean).join('\n\n');
                 const apiMsgs = [{ role: 'system', content: system || '你是一个有帮助的AI。' }, ...msgs.map(m => ({ role: m.role, content: m.content }))];
                 state.isStreaming = true;
                 state.abortController = new AbortController();
