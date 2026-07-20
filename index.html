@@ -17,16 +17,12 @@
             --bg-primary: #f5f6f8;
             --bg-sidebar: #1e1f2a;
             --bg-chat: #ffffff;
-            --bg-input-area: #ffffff;
             --text-primary: #1a1a2e;
-            --text-secondary: #6b7280;
             --text-sidebar: #c8c9d4;
             --accent: #6366f1;
             --accent-hover: #5558e6;
             --user-bubble: #6366f1;
-            --user-bubble-text: #ffffff;
             --ai-bubble: #f1f3f6;
-            --ai-bubble-text: #1a1a2e;
             --border: #e5e7eb;
             --radius-sm: 8px;
             --radius-md: 12px;
@@ -36,7 +32,13 @@
         }
         * { margin:0; padding:0; box-sizing:border-box; }
         body { font-family: 'Segoe UI', 'PingFang SC', system-ui, sans-serif; background:var(--bg-primary); height:100vh; display:flex; color:var(--text-primary); }
-        .sidebar { width:340px; min-width:340px; height:100vh; background:var(--bg-sidebar); display:flex; flex-direction:column; color:var(--text-sidebar); z-index:20; box-shadow:var(--shadow-lg); transition:transform var(--transition); }
+        
+        /* 侧边栏 */
+        .sidebar {
+            width:340px; min-width:340px; height:100vh; background:var(--bg-sidebar);
+            display:flex; flex-direction:column; color:var(--text-sidebar);
+            z-index:20; box-shadow:var(--shadow-lg); transition:transform var(--transition);
+        }
         .sidebar-header { padding:20px 22px; border-bottom:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; gap:12px; }
         .sidebar-header .logo-icon { width:38px; height:38px; border-radius:var(--radius-sm); background:linear-gradient(135deg,#6366f1,#8b5cf6); display:flex; align-items:center; justify-content:center; font-size:20px; }
         .sidebar-header .logo-text { font-weight:700; font-size:17px; color:#e8e9f2; }
@@ -44,9 +46,17 @@
         .sidebar-section { background:rgba(255,255,255,0.03); border-radius:var(--radius-md); padding:14px 16px; border:1px solid rgba(255,255,255,0.05); }
         .sidebar-section-title { font-size:11px; text-transform:uppercase; letter-spacing:1.2px; color:#8b8d9e; margin-bottom:10px; font-weight:600; }
         .sidebar label { font-size:12px; color:#a0a2b4; display:block; margin-bottom:5px; }
-        .sidebar input, .sidebar textarea { width:100%; padding:10px 12px; border-radius:var(--radius-sm); border:1px solid rgba(255,255,255,0.12); background:rgba(0,0,0,0.25); color:#e0e1ea; font-size:13px; resize:vertical; outline:none; }
+        .sidebar input, .sidebar textarea {
+            width:100%; padding:10px 12px; border-radius:var(--radius-sm);
+            border:1px solid rgba(255,255,255,0.12); background:rgba(0,0,0,0.25);
+            color:#e0e1ea; font-size:13px; resize:vertical; outline:none;
+        }
         .sidebar textarea { min-height:70px; }
-        .btn { padding:10px 16px; border-radius:var(--radius-sm); border:none; cursor:pointer; font-size:13px; font-weight:600; transition:all var(--transition); display:inline-flex; align-items:center; gap:6px; }
+        .btn {
+            padding:10px 16px; border-radius:var(--radius-sm); border:none;
+            cursor:pointer; font-size:13px; font-weight:600; transition:all var(--transition);
+            display:inline-flex; align-items:center; gap:6px; justify-content:center;
+        }
         .btn-primary { background:var(--accent); color:#fff; }
         .btn-primary:hover { background:var(--accent-hover); }
         .btn-outline { background:transparent; border:1px solid rgba(255,255,255,0.2); color:#d0d1de; }
@@ -54,30 +64,71 @@
         .agent-item { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:var(--radius-sm); cursor:pointer; border:1px solid transparent; background:rgba(255,255,255,0.02); }
         .agent-item.active { background:rgba(99,102,241,0.2); border-color:rgba(99,102,241,0.5); }
         .agent-item .agent-avatar { width:34px; height:34px; border-radius:50%; background:linear-gradient(135deg,#6366f1,#a78bfa); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; }
+        
+        /* 主内容区 */
         .main-content { flex:1; display:flex; flex-direction:column; height:100vh; background:var(--bg-chat); }
-        .chat-toolbar { display:flex; align-items:center; gap:8px; padding:10px 20px; border-bottom:1px solid var(--border); background:#fafbfc; }
+        .chat-toolbar { display:flex; align-items:center; gap:8px; padding:10px 20px; border-bottom:1px solid var(--border); background:#fafbfc; flex-wrap:wrap; }
+        .chat-toolbar .toolbar-btn { padding:8px 14px; border-radius:20px; border:1px solid var(--border); background:#fff; cursor:pointer; font-size:12px; font-weight:500; display:flex; align-items:center; gap:5px; }
         .messages-container { flex:1; overflow-y:auto; padding:20px 24px; display:flex; flex-direction:column; gap:16px; background:#fdfdfe; }
         .message { display:flex; gap:10px; max-width:85%; }
         .message.user { align-self:flex-end; flex-direction:row-reverse; }
         .message.assistant { align-self:flex-start; }
         .msg-bubble { padding:12px 16px; border-radius:var(--radius-lg); line-height:1.6; font-size:14px; }
-        .message.user .msg-bubble { background:var(--user-bubble); color:var(--user-bubble-text); }
-        .message.assistant .msg-bubble { background:var(--ai-bubble); color:var(--ai-bubble-text); border:1px solid #e9ebf0; }
-        .input-area { padding:14px 20px; border-top:1px solid var(--border); display:flex; gap:10px; align-items:flex-end; }
-        .input-area textarea { flex:1; padding:12px 16px; border-radius:var(--radius-lg); border:1.5px solid #e0e3e8; resize:none; font-family:inherit; }
-        .toast-container { position:fixed; top:20px; right:20px; z-index:200; }
-        .toast { padding:12px 18px; border-radius:var(--radius-sm); color:#fff; font-size:13px; margin-bottom:8px; }
+        .message.user .msg-bubble { background:var(--user-bubble); color:#fff; }
+        .message.assistant .msg-bubble { background:var(--ai-bubble); color:var(--text-primary); border:1px solid #e9ebf0; }
+        .input-area { padding:14px 20px; border-top:1px solid var(--border); display:flex; gap:10px; align-items:flex-end; background:#fff; }
+        .input-area textarea { flex:1; padding:12px 16px; border-radius:var(--radius-lg); border:1.5px solid #e0e3e8; resize:none; font-family:inherit; font-size:14px; }
+        .send-btn { width:44px; height:44px; border-radius:50%; background:var(--accent); color:#fff; border:none; cursor:pointer; font-size:18px; display:flex; align-items:center; justify-content:center; }
+        .send-btn:disabled { background:#ccc; cursor:not-allowed; }
+        
+        /* 汉堡菜单 */
+        #hamburgerBtn {
+            display: none;
+            position: fixed; top:12px; left:12px; z-index:999;
+            width:42px; height:42px; background:#fff; border:1px solid #ddd;
+            border-radius:8px; font-size:24px; box-shadow:0 2px 8px rgba(0,0,0,0.1);
+            cursor:pointer; align-items:center; justify-content:center;
+        }
+        
+        /* 移动端适配 */
+        @media (max-width: 768px) {
+            .sidebar {
+                position: fixed; top:0; left:0; transform: translateX(-100%);
+                width:300px; min-width:300px; z-index:30;
+            }
+            .sidebar.open { transform: translateX(0); }
+            #hamburgerBtn { display: flex; }
+            .chat-toolbar { padding-left: 60px; }
+            .messages-container { padding:16px 12px; }
+            .input-area { padding:10px 12px 14px; }
+        }
+        
+        /* 模态框 */
         .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:100; display:flex; align-items:center; justify-content:center; }
         .modal { background:#fff; border-radius:var(--radius-md); padding:24px; width:90%; max-width:500px; }
-        .import-btn { cursor:pointer; display:inline-block; background:var(--accent); color:#fff; padding:8px 14px; border-radius:6px; font-size:13px; font-weight:500; transition:all var(--transition); }
-        .import-btn:hover { background:var(--accent-hover); }
-        @media (max-width:768px) { .sidebar { position:fixed; transform:translateX(-100%); } .sidebar.open { transform:translateX(0); } }
+        .modal h3 { margin-bottom:16px; }
+        .modal input, .modal textarea { width:100%; padding:10px; border:1.5px solid #e0e3e8; border-radius:8px; font-size:13px; }
+        .modal-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:20px; }
+        
+        /* Toast */
+        .toast-container { position:fixed; top:20px; right:20px; z-index:200; display:flex; flex-direction:column; gap:8px; }
+        .toast { padding:12px 18px; border-radius:var(--radius-sm); color:#fff; font-size:13px; margin-bottom:8px; }
+        .toast.success { background:#10b981; }
+        .toast.error { background:#ef4444; }
+        .toast.info { background:var(--accent); }
+        
+        .import-btn { cursor:pointer; display:inline-block; background:var(--accent); color:#fff; padding:8px 14px; border-radius:6px; font-size:13px; text-align:center; }
     </style>
 </head>
 <body>
-    <button id="hamburgerBtn" style="display:none; position:absolute; top:12px; left:12px; z-index:30;">☰</button>
+    <button id="hamburgerBtn">☰</button>
+    
+    <!-- 侧边栏 -->
     <aside class="sidebar" id="sidebar">
-        <div class="sidebar-header"><div class="logo-icon">🤖</div><span class="logo-text">AI 聊天平台</span></div>
+        <div class="sidebar-header">
+            <div class="logo-icon">🤖</div>
+            <span class="logo-text">AI 聊天平台</span>
+        </div>
         <div class="sidebar-scroll">
             <div class="sidebar-section">
                 <div class="sidebar-section-title">API 设置</div>
@@ -89,7 +140,7 @@
             </div>
             <div class="sidebar-section">
                 <div class="sidebar-section-title">底层提示词（全局）</div>
-                <textarea id="globalPromptInput" placeholder="例如：你是一个乐于助人的AI..."></textarea>
+                <textarea id="globalPromptInput" placeholder="例如：你是一个乐于助人的AI，请用简洁中文回答..."></textarea>
             </div>
             <div class="sidebar-section">
                 <div class="sidebar-section-title">我的智能体</div>
@@ -98,38 +149,47 @@
             </div>
             <div class="sidebar-section">
                 <div class="sidebar-section-title">数据管理</div>
-                <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                    <button class="btn btn-outline" id="exportBtn" style="flex:1;">⬇️ 导出数据</button>
-                    <label for="importFileInput" class="import-btn" style="flex:1; text-align:center;">⬆️ 导入数据</label>
+                <div style="display:flex; gap:8px;">
+                    <button class="btn btn-outline" id="exportBtn" style="flex:1;">⬇️ 导出</button>
+                    <label for="importFileInput" class="import-btn" style="flex:1;">⬆️ 导入</label>
                     <input type="file" id="importFileInput" accept=".json" style="display:none;">
                 </div>
             </div>
         </div>
     </aside>
+    
+    <!-- 主内容 -->
     <div class="main-content">
         <div class="chat-toolbar">
             <span style="font-weight:700; margin-right:auto;"><span id="currentAgentName">加载中...</span></span>
-            <button class="btn" id="regenerateBtn">🔄 重新生成</button>
-            <button class="btn" id="undoBtn">↩️ 撤回</button>
-            <button class="btn" id="restartChatBtn">🗑️ 重启对话</button>
+            <button class="toolbar-btn" id="regenerateBtn">🔄 重新生成</button>
+            <button class="toolbar-btn" id="undoBtn">↩️ 撤回</button>
+            <button class="toolbar-btn" id="restartChatBtn">🗑️ 重启</button>
         </div>
-        <div class="messages-container" id="messagesContainer"><div class="empty-state">💬 选择智能体开始对话</div></div>
+        <div class="messages-container" id="messagesContainer">
+            <div style="text-align:center; color:#aaa; margin-top:40px;">💬 选择或创建一个智能体开始聊天</div>
+        </div>
         <div class="input-area">
-            <textarea id="messageInput" placeholder="输入消息..." rows="1" disabled></textarea>
-            <button id="sendBtn" class="btn-primary" style="border-radius:50%; width:44px; height:44px;" disabled>➤</button>
+            <textarea id="messageInput" placeholder="输入消息... (Enter发送)" rows="1" disabled></textarea>
+            <button class="send-btn" id="sendBtn" disabled>➤</button>
         </div>
     </div>
+    
+    <!-- 智能体编辑模态框 -->
     <div class="modal-overlay" id="agentModalOverlay" style="display:none;">
         <div class="modal">
             <h3 id="agentModalTitle">创建智能体</h3>
-            <label>名称</label><input type="text" id="agentNameInput" style="width:100%; margin-bottom:12px;">
-            <label>表层提示词（人设）</label><textarea id="agentPromptInput" rows="4" style="width:100%;"></textarea>
-            <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:20px;">
-                <button class="btn" id="cancelAgentBtn">取消</button>
+            <label>名称</label>
+            <input type="text" id="agentNameInput" placeholder="智能体名称">
+            <label style="margin-top:12px;">表层提示词（人设）</label>
+            <textarea id="agentPromptInput" rows="4" placeholder="描述智能体的性格、专长..."></textarea>
+            <div class="modal-actions">
+                <button class="btn btn-outline" id="cancelAgentBtn">取消</button>
                 <button class="btn btn-primary" id="saveAgentBtn">保存</button>
             </div>
         </div>
     </div>
+    
     <div class="toast-container" id="toastContainer"></div>
 
     <script>
@@ -164,16 +224,18 @@
                 });
             }
 
-            // 状态
             const state = {
                 apiKey: '', globalPrompt: '', agents: [], currentAgentId: null,
                 conversations: {}, isStreaming: false, editingAgentId: null, abortController: null,
             };
 
+            const $ = id => document.getElementById(id);
+            
             function toast(msg, type='info') {
                 const t = document.createElement('div');
-                t.className = `toast ${type}`; t.textContent = msg;
-                document.getElementById('toastContainer').appendChild(t);
+                t.className = `toast ${type}`;
+                t.textContent = msg;
+                $('toastContainer').appendChild(t);
                 setTimeout(() => t.remove(), 3000);
             }
 
@@ -184,7 +246,7 @@
                     dbSet('agents', state.agents),
                     dbSet('currentAgentId', state.currentAgentId),
                     dbSet('conversations', state.conversations),
-                ]).catch(e => { toast('保存失败: ' + e.message, 'error'); });
+                ]).catch(e => toast('保存失败: ' + e.message, 'error'));
             }
 
             async function loadAll() {
@@ -196,6 +258,7 @@
                 state.agents = agents || [];
                 state.currentAgentId = currentAgentId || null;
                 state.conversations = conversations || {};
+
                 if (!state.agents.length) {
                     const def = { id: 'agent_'+Date.now(), name: '通用助手', surfacePrompt: '你是一个乐于助人的AI助手。', createdAt: new Date().toISOString() };
                     state.agents = [def];
@@ -203,7 +266,9 @@
                     state.conversations[def.id] = [];
                     await saveAll();
                 }
-                if (!state.agents.find(a => a.id === state.currentAgentId)) state.currentAgentId = state.agents[0]?.id || null;
+                if (state.currentAgentId && !state.agents.find(a => a.id === state.currentAgentId)) {
+                    state.currentAgentId = state.agents[0]?.id || null;
+                }
                 if (!state.currentAgentId && state.agents.length) state.currentAgentId = state.agents[0].id;
                 state.agents.forEach(a => { if (!state.conversations[a.id]) state.conversations[a.id] = []; });
             }
@@ -216,20 +281,39 @@
                 saveAll();
             }
 
+            function updateUI() {
+                $('apiKeyInput').value = state.apiKey;
+                $('globalPromptInput').value = state.globalPrompt;
+                const agent = getAgent();
+                $('currentAgentName').textContent = agent ? agent.name : '未选择智能体';
+                renderAgentList();
+                renderMessages();
+                const can = !!(state.apiKey && state.currentAgentId && !state.isStreaming);
+                $('messageInput').disabled = !can;
+                $('sendBtn').disabled = !can;
+                $('regenerateBtn').disabled = !can || getMsgs().length === 0;
+                $('undoBtn').disabled = !can || getMsgs().length === 0;
+                $('restartChatBtn').disabled = getMsgs().length === 0;
+            }
+
             function renderAgentList() {
-                const list = document.getElementById('agentList');
+                const list = $('agentList');
                 list.innerHTML = '';
                 state.agents.forEach(a => {
                     const li = document.createElement('li');
                     li.className = 'agent-item' + (a.id === state.currentAgentId ? ' active' : '');
-                    li.innerHTML = `<div class="agent-avatar">${a.name[0]}</div><div style="flex:1"><b>${a.name}</b><br><small>${a.surfacePrompt.slice(0,20)}</small></div>`;
+                    li.innerHTML = `<div class="agent-avatar">${a.name.charAt(0)}</div><div style="flex:1"><b>${a.name}</b><br><small>${(a.surfacePrompt||'').slice(0,20)}</small></div>`;
                     li.onclick = (e) => {
-                        if (e.target.tagName === 'BUTTON') return;
-                        if (state.isStreaming) { toast('正在生成回复，请等待', 'info'); return; }
+                        if (e.target.closest('button')) return;
+                        if (state.isStreaming) return toast('正在生成回复，请等待', 'info');
                         state.currentAgentId = a.id;
                         saveAll().then(updateUI);
+                        if (window.innerWidth <= 768) $('sidebar').classList.remove('open');
                     };
-                    const delBtn = document.createElement('button'); delBtn.textContent='🗑️'; delBtn.onclick = (e) => { e.stopPropagation(); deleteAgent(a.id); };
+                    const delBtn = document.createElement('button');
+                    delBtn.textContent = '🗑️';
+                    delBtn.style.cssText = 'background:none;border:none;cursor:pointer;margin-left:auto;';
+                    delBtn.onclick = (e) => { e.stopPropagation(); deleteAgent(a.id); };
                     li.appendChild(delBtn);
                     list.appendChild(li);
                 });
@@ -237,41 +321,34 @@
 
             function deleteAgent(id) {
                 if (state.agents.length <= 1) return toast('至少保留一个智能体', 'error');
-                if (!confirm('确定删除？')) return;
+                if (!confirm('确定删除这个智能体及其所有对话吗？')) return;
                 state.agents = state.agents.filter(a => a.id !== id);
                 delete state.conversations[id];
-                if (state.currentAgentId === id) state.currentAgentId = state.agents[0].id;
+                if (state.currentAgentId === id) state.currentAgentId = state.agents[0]?.id;
                 saveAll().then(updateUI);
             }
 
             function renderMessages() {
-                const container = document.getElementById('messagesContainer');
+                const container = $('messagesContainer');
                 const msgs = getMsgs();
-                container.innerHTML = msgs.length ? '' : '<div class="empty-state">💬 开始对话吧</div>';
+                container.innerHTML = msgs.length ? '' : '<div style="text-align:center; color:#aaa; margin-top:40px;">💬 开始对话吧</div>';
                 msgs.forEach(m => {
                     const div = document.createElement('div');
                     div.className = `message ${m.role}`;
-                    div.innerHTML = `<div class="msg-bubble">${m.content}</div>`;
+                    div.innerHTML = `<div class="msg-bubble">${escapeHtml(m.content)}</div>`;
                     container.appendChild(div);
                 });
                 container.scrollTop = container.scrollHeight;
             }
 
-            function updateUI() {
-                document.getElementById('apiKeyInput').value = state.apiKey;
-                document.getElementById('globalPromptInput').value = state.globalPrompt;
-                const agent = getAgent();
-                document.getElementById('currentAgentName').textContent = agent ? agent.name : '未选择';
-                renderAgentList();
-                renderMessages();
-                const can = state.apiKey && state.currentAgentId && !state.isStreaming;
-                document.getElementById('messageInput').disabled = !can;
-                document.getElementById('sendBtn').disabled = !can;
+            function escapeHtml(str) {
+                const div = document.createElement('div');
+                div.textContent = str;
+                return div.innerHTML;
             }
 
-            // 导出功能
             function exportData() {
-                const exportObj = {
+                const data = {
                     apiKey: state.apiKey,
                     globalPrompt: state.globalPrompt,
                     agents: state.agents,
@@ -279,28 +356,24 @@
                     conversations: state.conversations,
                     exportedAt: new Date().toISOString(),
                 };
-                const jsonStr = JSON.stringify(exportObj, null, 2);
-                const blob = new Blob([jsonStr], { type: 'application/json' });
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
                 a.download = `ai_chat_backup_${new Date().toISOString().slice(0,10)}.json`;
-                document.body.appendChild(a);
                 a.click();
-                document.body.removeChild(a);
                 URL.revokeObjectURL(url);
-                toast('数据已导出！请保存好文件', 'success');
+                toast('数据已导出', 'success');
             }
 
-            // 导入功能
             function importData(file) {
                 if (!file) return;
                 const reader = new FileReader();
                 reader.onload = async (e) => {
                     try {
                         const data = JSON.parse(e.target.result);
-                        if (!data.agents || !data.conversations) throw new Error('文件格式不正确');
-                        if (!confirm('导入数据将覆盖当前所有内容，确定继续吗？')) return;
+                        if (!data.agents || !data.conversations) throw new Error('无效的备份文件');
+                        if (!confirm('导入将覆盖当前所有数据，确定继续吗？')) return;
                         state.apiKey = data.apiKey || '';
                         state.globalPrompt = data.globalPrompt || '';
                         state.agents = data.agents;
@@ -309,7 +382,7 @@
                         state.agents.forEach(a => { if (!state.conversations[a.id]) state.conversations[a.id] = []; });
                         await saveAll();
                         updateUI();
-                        toast('数据导入成功！页面已更新', 'success');
+                        toast('导入成功', 'success');
                     } catch (err) {
                         toast('导入失败：' + err.message, 'error');
                     }
@@ -317,190 +390,195 @@
                 reader.readAsText(file);
             }
 
-            // 聊天发送逻辑
             async function sendMessage() {
-    if (state.isStreaming || !state.apiKey || !state.currentAgentId) return;
-    const input = $('messageInput');
-    const content = input.value.trim();
-    if (!content) return;
-    const msgs = getMsgs();
-    msgs.push({ role: 'user', content });
-    setMsgs(msgs);
-    input.value = '';
-    input.style.height = 'auto';
-    updateUI();
+                if (state.isStreaming || !state.apiKey || !state.currentAgentId) return;
+                const input = $('messageInput');
+                const content = input.value.trim();
+                if (!content) return;
+                const msgs = getMsgs();
+                msgs.push({ role: 'user', content });
+                setMsgs(msgs);
+                input.value = '';
+                input.style.height = 'auto';
+                updateUI();
 
-    state.isStreaming = true;
-    state.abortController = new AbortController();
-    updateUI();
+                state.isStreaming = true;
+                state.abortController = new AbortController();
+                updateUI();
 
-    const now = new Date();
-    const timeHint = `当前时间：${now.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}（北京时间）。请根据此时间回答，但不要在回复中直接提及此时间信息。`;
-    const system = [timeHint, state.globalPrompt, getAgent()?.surfacePrompt || ''].filter(Boolean).join('\n\n');
-    const apiMsgs = [{ role: 'system', content: system || '你是一个有帮助的AI。' }, ...msgs.map(m => ({ role: m.role, content: m.content }))];
+                const now = new Date();
+                const timeHint = `当前时间：${now.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}（北京时间）。请根据此时间回答，但不要在回复中直接提及此时间信息。`;
+                const system = [timeHint, state.globalPrompt, getAgent()?.surfacePrompt || ''].filter(Boolean).join('\n\n');
+                const apiMsgs = [{ role: 'system', content: system || '你是一个有帮助的AI。' }, ...msgs.map(m => ({ role: m.role, content: m.content }))];
 
-    const container = $('messagesContainer');
-    const streamDiv = document.createElement('div');
-    streamDiv.className = 'message assistant';
-    streamDiv.innerHTML = '<div class="msg-bubble"><span class="stream-content"></span><span class="cursor">|</span></div>';
-    container.appendChild(streamDiv);
-    container.scrollTop = container.scrollHeight;
+                const container = $('messagesContainer');
+                const streamDiv = document.createElement('div');
+                streamDiv.className = 'message assistant';
+                streamDiv.innerHTML = '<div class="msg-bubble"><span class="stream-content"></span><span class="cursor">|</span></div>';
+                container.appendChild(streamDiv);
+                container.scrollTop = container.scrollHeight;
 
-    try {
-        const resp = await fetch('https://api.deepseek.com/chat/completions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.apiKey}` },
-            body: JSON.stringify({ model: 'deepseek-chat', messages: apiMsgs, stream: true }),
-            signal: state.abortController.signal,
-        });
-        if (!resp.ok) {
-            const err = await resp.json().catch(() => ({}));
-            throw new Error(err.error?.message || `请求失败 (${resp.status})`);
-        }
-        const reader = resp.body.getReader();
-        const decoder = new TextDecoder();
-        let full = '', buffer = '';
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split('\n');
-            buffer = lines.pop() || '';
-            for (const line of lines) {
-                if (!line.trim() || !line.startsWith('data:')) continue;
-                const data = line.slice(5).trim();
-                if (data === '[DONE]') continue;
                 try {
-                    const j = JSON.parse(data);
-                    full += j.choices?.[0]?.delta?.content || '';
-                    streamDiv.querySelector('.stream-content').textContent = full;
-                    container.scrollTop = container.scrollHeight;
-                } catch(e) {}
+                    const resp = await fetch('https://api.deepseek.com/chat/completions', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.apiKey}` },
+                        body: JSON.stringify({ model: 'deepseek-chat', messages: apiMsgs, stream: true }),
+                        signal: state.abortController.signal,
+                    });
+                    if (!resp.ok) {
+                        const err = await resp.json().catch(() => ({}));
+                        throw new Error(err.error?.message || `请求失败 (${resp.status})`);
+                    }
+                    const reader = resp.body.getReader();
+                    const decoder = new TextDecoder();
+                    let full = '', buffer = '';
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        buffer += decoder.decode(value, { stream: true });
+                        const lines = buffer.split('\n');
+                        buffer = lines.pop() || '';
+                        for (const line of lines) {
+                            if (!line.trim() || !line.startsWith('data:')) continue;
+                            const data = line.slice(5).trim();
+                            if (data === '[DONE]') continue;
+                            try {
+                                const j = JSON.parse(data);
+                                full += j.choices?.[0]?.delta?.content || '';
+                                streamDiv.querySelector('.stream-content').textContent = full;
+                                container.scrollTop = container.scrollHeight;
+                            } catch(e) {}
+                        }
+                    }
+                    streamDiv.querySelector('.cursor').remove();
+                    streamDiv.querySelector('.msg-bubble').textContent = full;
+                    const updated = getMsgs();
+                    updated.push({ role: 'assistant', content: full });
+                    setMsgs(updated);
+                } catch (e) {
+                    streamDiv.remove();
+                    if (e.name !== 'AbortError') toast('错误: ' + e.message, 'error');
+                    else toast('已取消生成', 'info');
+                } finally {
+                    state.isStreaming = false;
+                    state.abortController = null;
+                    updateUI();
+                }
             }
-        }
-        streamDiv.querySelector('.cursor').remove();
-        streamDiv.querySelector('.msg-bubble').textContent = full;
-        const updated = getMsgs();
-        updated.push({ role: 'assistant', content: full });
-        setMsgs(updated);
-    } catch (e) {
-        streamDiv.remove();
-        if (e.name !== 'AbortError') toast('错误: ' + e.message, 'error');
-        else toast('已取消生成', 'info');
-    } finally {
-        state.isStreaming = false;
-        state.abortController = null;
-        updateUI();
-    }
-}
 
-            // 重新生成
             async function regenerate() {
-    if (state.isStreaming) return;
-    const msgs = getMsgs();
-    if (msgs.length && msgs[msgs.length-1].role === 'assistant') msgs.pop();
-    if (!msgs.length || msgs[msgs.length-1].role !== 'user') return;
-    setMsgs(msgs);
-    updateUI();
+                if (state.isStreaming) return;
+                const msgs = getMsgs();
+                if (msgs.length && msgs[msgs.length-1].role === 'assistant') msgs.pop();
+                if (!msgs.length || msgs[msgs.length-1].role !== 'user') return;
+                setMsgs(msgs);
+                updateUI();
 
-    const now = new Date();
-    const timeHint = `当前时间：${now.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}（北京时间）。请根据此时间回答，但不要在回复中直接提及此时间信息。`;
-    const system = [timeHint, state.globalPrompt, getAgent()?.surfacePrompt || ''].filter(Boolean).join('\n\n');
-    const apiMsgs = [{ role: 'system', content: system || '你是一个有帮助的AI。' }, ...msgs.map(m => ({ role: m.role, content: m.content }))];
+                const now = new Date();
+                const timeHint = `当前时间：${now.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}（北京时间）。请根据此时间回答，但不要在回复中直接提及此时间信息。`;
+                const system = [timeHint, state.globalPrompt, getAgent()?.surfacePrompt || ''].filter(Boolean).join('\n\n');
+                const apiMsgs = [{ role: 'system', content: system || '你是一个有帮助的AI。' }, ...msgs.map(m => ({ role: m.role, content: m.content }))];
 
-    state.isStreaming = true;
-    state.abortController = new AbortController();
-    updateUI();
-    const container = $('messagesContainer');
-    const streamDiv = document.createElement('div');
-    streamDiv.className = 'message assistant';
-    streamDiv.innerHTML = '<div class="msg-bubble"><span class="stream-content"></span><span class="cursor">|</span></div>';
-    container.appendChild(streamDiv);
-    try {
-        const resp = await fetch('https://api.deepseek.com/chat/completions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.apiKey}` },
-            body: JSON.stringify({ model: 'deepseek-chat', messages: apiMsgs, stream: true }),
-            signal: state.abortController.signal,
-        });
-        if (!resp.ok) throw new Error((await resp.json().catch(()=>{})).error?.message || `HTTP ${resp.status}`);
-        const reader = resp.body.getReader();
-        const decoder = new TextDecoder();
-        let full = '', buffer = '';
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split('\n');
-            buffer = lines.pop() || '';
-            for (const line of lines) {
-                if (!line.trim() || !line.startsWith('data:')) continue;
-                const data = line.slice(5).trim();
-                if (data === '[DONE]') continue;
+                state.isStreaming = true;
+                state.abortController = new AbortController();
+                updateUI();
+                const container = $('messagesContainer');
+                const streamDiv = document.createElement('div');
+                streamDiv.className = 'message assistant';
+                streamDiv.innerHTML = '<div class="msg-bubble"><span class="stream-content"></span><span class="cursor">|</span></div>';
+                container.appendChild(streamDiv);
                 try {
-                    const j = JSON.parse(data);
-                    full += j.choices?.[0]?.delta?.content || '';
-                    streamDiv.querySelector('.stream-content').textContent = full;
-                    container.scrollTop = container.scrollHeight;
-                } catch(e) {}
+                    const resp = await fetch('https://api.deepseek.com/chat/completions', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.apiKey}` },
+                        body: JSON.stringify({ model: 'deepseek-chat', messages: apiMsgs, stream: true }),
+                        signal: state.abortController.signal,
+                    });
+                    if (!resp.ok) throw new Error((await resp.json().catch(()=>{})).error?.message || `HTTP ${resp.status}`);
+                    const reader = resp.body.getReader();
+                    const decoder = new TextDecoder();
+                    let full = '', buffer = '';
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        buffer += decoder.decode(value, { stream: true });
+                        const lines = buffer.split('\n');
+                        buffer = lines.pop() || '';
+                        for (const line of lines) {
+                            if (!line.trim() || !line.startsWith('data:')) continue;
+                            const data = line.slice(5).trim();
+                            if (data === '[DONE]') continue;
+                            try {
+                                const j = JSON.parse(data);
+                                full += j.choices?.[0]?.delta?.content || '';
+                                streamDiv.querySelector('.stream-content').textContent = full;
+                                container.scrollTop = container.scrollHeight;
+                            } catch(e) {}
+                        }
+                    }
+                    streamDiv.querySelector('.cursor').remove();
+                    streamDiv.querySelector('.msg-bubble').textContent = full;
+                    const updated = getMsgs();
+                    updated.push({ role: 'assistant', content: full });
+                    setMsgs(updated);
+                } catch (e) {
+                    streamDiv.remove();
+                    if (e.name !== 'AbortError') toast('错误: ' + e.message, 'error');
+                } finally {
+                    state.isStreaming = false;
+                    state.abortController = null;
+                    updateUI();
+                }
             }
-        }
-        streamDiv.querySelector('.cursor').remove();
-        streamDiv.querySelector('.msg-bubble').textContent = full;
-        const updated = getMsgs();
-        updated.push({ role: 'assistant', content: full });
-        setMsgs(updated);
-    } catch (e) {
-        streamDiv.remove();
-        if (e.name !== 'AbortError') toast('错误: ' + e.message, 'error');
-    } finally {
-        state.isStreaming = false;
-        state.abortController = null;
-        updateUI();
-    }
-}
+
             function undo() {
                 if (state.isStreaming) { state.abortController?.abort(); return; }
                 const msgs = getMsgs();
                 if (!msgs.length) return;
-                msgs.pop();
+                const removed = msgs.pop();
                 setMsgs(msgs);
                 updateUI();
-                toast('已撤回一条消息', 'info');
+                toast(`已撤回一条${removed.role === 'user' ? '用户' : 'AI'}消息`, 'info');
             }
 
             function restartChat() {
                 if (state.isStreaming) { state.abortController?.abort(); setTimeout(restartChat, 200); return; }
                 if (!getMsgs().length) return toast('对话已经是空的', 'info');
-                if (confirm('清空当前对话？')) {
+                if (confirm('确定清空当前对话吗？')) {
                     setMsgs([]);
                     updateUI();
                     toast('对话已重启', 'success');
                 }
             }
 
-            // 事件绑定
-            document.getElementById('sendBtn').onclick = sendMessage;
-            document.getElementById('messageInput').onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } };
-            document.getElementById('regenerateBtn').onclick = regenerate;
-            document.getElementById('undoBtn').onclick = undo;
-            document.getElementById('restartChatBtn').onclick = restartChat;
-            document.getElementById('apiKeyInput').oninput = e => { state.apiKey = e.target.value; saveAll(); updateUI(); };
-            document.getElementById('globalPromptInput').oninput = e => { state.globalPrompt = e.target.value; saveAll(); };
-            document.getElementById('toggleApiKeyVis').onclick = () => {
-                const el = document.getElementById('apiKeyInput');
+            $('sendBtn').onclick = sendMessage;
+            $('messageInput').onkeydown = e => {
+                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+            };
+            $('messageInput').oninput = () => {
+                $('messageInput').style.height = 'auto';
+                $('messageInput').style.height = Math.min($('messageInput').scrollHeight, 140) + 'px';
+            };
+            $('regenerateBtn').onclick = regenerate;
+            $('undoBtn').onclick = undo;
+            $('restartChatBtn').onclick = restartChat;
+            $('apiKeyInput').oninput = e => { state.apiKey = e.target.value; saveAll(); updateUI(); };
+            $('globalPromptInput').oninput = e => { state.globalPrompt = e.target.value; saveAll(); };
+            $('toggleApiKeyVis').onclick = () => {
+                const el = $('apiKeyInput');
                 el.type = el.type === 'password' ? 'text' : 'password';
             };
-            document.getElementById('createAgentBtn').onclick = () => {
+            $('createAgentBtn').onclick = () => {
                 state.editingAgentId = null;
-                document.getElementById('agentNameInput').value = '';
-                document.getElementById('agentPromptInput').value = '';
-                document.getElementById('agentModalOverlay').style.display = 'flex';
+                $('agentNameInput').value = '';
+                $('agentPromptInput').value = '';
+                $('agentModalTitle').textContent = '创建智能体';
+                $('agentModalOverlay').style.display = 'flex';
             };
-            document.getElementById('cancelAgentBtn').onclick = () => document.getElementById('agentModalOverlay').style.display = 'none';
-            document.getElementById('saveAgentBtn').onclick = async () => {
-                const name = document.getElementById('agentNameInput').value.trim();
-                const prompt = document.getElementById('agentPromptInput').value.trim();
+            $('cancelAgentBtn').onclick = () => $('agentModalOverlay').style.display = 'none';
+            $('saveAgentBtn').onclick = async () => {
+                const name = $('agentNameInput').value.trim();
+                const prompt = $('agentPromptInput').value.trim();
                 if (!name) return toast('请输入名称', 'error');
                 if (state.editingAgentId) {
                     const agent = state.agents.find(a => a.id === state.editingAgentId);
@@ -512,34 +590,40 @@
                     state.currentAgentId = newAgent.id;
                 }
                 await saveAll();
-                document.getElementById('agentModalOverlay').style.display = 'none';
+                $('agentModalOverlay').style.display = 'none';
                 updateUI();
                 toast(state.editingAgentId ? '智能体已更新' : '智能体已创建', 'success');
                 state.editingAgentId = null;
             };
-            document.getElementById('agentModalOverlay').onclick = e => { if (e.target === e.currentTarget) document.getElementById('agentModalOverlay').style.display = 'none'; };
-            document.getElementById('exportBtn').onclick = exportData;
-            document.getElementById('importFileInput').onchange = (e) => {
-                const file = e.target.files[0];
-                if (file) importData(file);
+            $('agentModalOverlay').onclick = e => { if (e.target === $('agentModalOverlay')) $('agentModalOverlay').style.display = 'none'; };
+            $('exportBtn').onclick = exportData;
+            $('importFileInput').onchange = e => {
+                if (e.target.files[0]) importData(e.target.files[0]);
                 e.target.value = '';
             };
+            $('hamburgerBtn').onclick = () => {
+                $('sidebar').classList.toggle('open');
+            };
+            document.querySelector('.main-content').addEventListener('click', (e) => {
+                if (window.innerWidth <= 768 && $('sidebar').classList.contains('open')) {
+                    if (!e.target.closest('#hamburgerBtn') && !e.target.closest('.sidebar')) {
+                        $('sidebar').classList.remove('open');
+                    }
+                }
+            });
 
-            // PWA: 注册 Service Worker
             if ('serviceWorker' in navigator) {
                 window.addEventListener('load', () => {
-                    navigator.serviceWorker.register('service-worker.js').then(reg => {
-                        console.log('Service Worker 注册成功', reg.scope);
-                    }).catch(err => {
-                        console.warn('Service Worker 注册失败', err);
-                    });
+                    navigator.serviceWorker.register('service-worker.js')
+                        .then(reg => console.log('SW registered'))
+                        .catch(err => console.warn('SW registration failed', err));
                 });
             }
 
-            // 初始化
             (async () => {
                 await loadAll();
                 updateUI();
+                if (state.apiKey && state.currentAgentId) $('messageInput').focus();
             })();
         })();
     </script>
