@@ -319,140 +319,146 @@
 
             // 聊天发送逻辑
             async function sendMessage() {
-                if (state.isStreaming || !state.apiKey || !state.currentAgentId) return;
-                const input = document.getElementById('messageInput');
-                const content = input.value.trim();
-                if (!content) return;
-                const msgs = getMsgs();
-                msgs.push({ role: 'user', content });
-                setMsgs(msgs);
-                input.value = '';
-                updateUI();
+    if (state.isStreaming || !state.apiKey || !state.currentAgentId) return;
+    const input = $('messageInput');
+    const content = input.value.trim();
+    if (!content) return;
+    const msgs = getMsgs();
+    msgs.push({ role: 'user', content });
+    setMsgs(msgs);
+    input.value = '';
+    input.style.height = 'auto';
+    updateUI();
 
-                state.isStreaming = true;
-                state.abortController = new AbortController();
-                updateUI();
-                const system = [const now = new Date();
-                const timeHint = `当前时间：${now.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}（北京时间）。请根据此时间回答，但不要在回复中直接提及此时间信息。`;
-                const system = [timeHint, state.globalPrompt, getAgent()?.surfacePrompt || ''].filter(Boolean).join('\n\n');?.surfacePrompt || ''].filter(Boolean).join('\n\n');
-                const apiMsgs = [{ role: 'system', content: system || '你是一个有帮助的AI。' }, ...msgs.map(m => ({ role: m.role, content: m.content }))];
+    state.isStreaming = true;
+    state.abortController = new AbortController();
+    updateUI();
 
-                const container = document.getElementById('messagesContainer');
-                const streamDiv = document.createElement('div');
-                streamDiv.className = 'message assistant';
-                streamDiv.innerHTML = '<div class="msg-bubble"><span class="stream-content"></span><span class="cursor">|</span></div>';
-                container.appendChild(streamDiv);
-                container.scrollTop = container.scrollHeight;
+    const now = new Date();
+    const timeHint = `当前时间：${now.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}（北京时间）。请根据此时间回答，但不要在回复中直接提及此时间信息。`;
+    const system = [timeHint, state.globalPrompt, getAgent()?.surfacePrompt || ''].filter(Boolean).join('\n\n');
+    const apiMsgs = [{ role: 'system', content: system || '你是一个有帮助的AI。' }, ...msgs.map(m => ({ role: m.role, content: m.content }))];
 
+    const container = $('messagesContainer');
+    const streamDiv = document.createElement('div');
+    streamDiv.className = 'message assistant';
+    streamDiv.innerHTML = '<div class="msg-bubble"><span class="stream-content"></span><span class="cursor">|</span></div>';
+    container.appendChild(streamDiv);
+    container.scrollTop = container.scrollHeight;
+
+    try {
+        const resp = await fetch('https://api.deepseek.com/chat/completions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.apiKey}` },
+            body: JSON.stringify({ model: 'deepseek-chat', messages: apiMsgs, stream: true }),
+            signal: state.abortController.signal,
+        });
+        if (!resp.ok) {
+            const err = await resp.json().catch(() => ({}));
+            throw new Error(err.error?.message || `请求失败 (${resp.status})`);
+        }
+        const reader = resp.body.getReader();
+        const decoder = new TextDecoder();
+        let full = '', buffer = '';
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+            for (const line of lines) {
+                if (!line.trim() || !line.startsWith('data:')) continue;
+                const data = line.slice(5).trim();
+                if (data === '[DONE]') continue;
                 try {
-                    const resp = await fetch('https://api.deepseek.com/chat/completions', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.apiKey}` },
-                        body: JSON.stringify({ model: 'deepseek-chat', messages: apiMsgs, stream: true }),
-                        signal: state.abortController.signal,
-                    });
-                    if (!resp.ok) throw new Error((await resp.json()).error?.message || `HTTP ${resp.status}`);
-                    const reader = resp.body.getReader();
-                    const decoder = new TextDecoder();
-                    let full = '', buffer = '';
-                    while (true) {
-                        const { done, value } = await reader.read();
-                        if (done) break;
-                        buffer += decoder.decode(value, { stream: true });
-                        const lines = buffer.split('\n');
-                        buffer = lines.pop() || '';
-                        for (const line of lines) {
-                            if (!line.trim() || !line.startsWith('data:')) continue;
-                            const data = line.slice(5).trim();
-                            if (data === '[DONE]') continue;
-                            try {
-                                const j = JSON.parse(data);
-                                full += j.choices?.[0]?.delta?.content || '';
-                                streamDiv.querySelector('.stream-content').textContent = full;
-                                container.scrollTop = container.scrollHeight;
-                            } catch (e) {}
-                        }
-                    }
-                    streamDiv.querySelector('.cursor').remove();
-                    streamDiv.querySelector('.msg-bubble').textContent = full;
-                    const updatedMsgs = getMsgs();
-                    updatedMsgs.push({ role: 'assistant', content: full });
-                    setMsgs(updatedMsgs);
-                } catch (e) {
-                    streamDiv.remove();
-                    if (e.name !== 'AbortError') toast('错误: ' + e.message, 'error');
-                } finally {
-                    state.isStreaming = false;
-                    state.abortController = null;
-                    updateUI();
-                }
+                    const j = JSON.parse(data);
+                    full += j.choices?.[0]?.delta?.content || '';
+                    streamDiv.querySelector('.stream-content').textContent = full;
+                    container.scrollTop = container.scrollHeight;
+                } catch(e) {}
             }
+        }
+        streamDiv.querySelector('.cursor').remove();
+        streamDiv.querySelector('.msg-bubble').textContent = full;
+        const updated = getMsgs();
+        updated.push({ role: 'assistant', content: full });
+        setMsgs(updated);
+    } catch (e) {
+        streamDiv.remove();
+        if (e.name !== 'AbortError') toast('错误: ' + e.message, 'error');
+        else toast('已取消生成', 'info');
+    } finally {
+        state.isStreaming = false;
+        state.abortController = null;
+        updateUI();
+    }
+}
 
             // 重新生成
             async function regenerate() {
-                if (state.isStreaming) return;
-                const msgs = getMsgs();
-                if (msgs.length && msgs[msgs.length-1].role === 'assistant') msgs.pop();
-                if (!msgs.length || msgs[msgs.length-1].role !== 'user') return;
-                setMsgs(msgs);
-                updateUI();
-                // 复用发送逻辑的后半段
-                const system = [const now = new Date();
-                const timeHint = `当前时间：${now.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}（北京时间）。请根据此时间回答，但不要在回复中直接提及此时间信息。`;
-                const system = [timeHint, state.globalPrompt, getAgent()?.surfacePrompt || ''].filter(Boolean).join('\n\n');?.surfacePrompt || ''].filter(Boolean).join('\n\n');
-                const apiMsgs = [{ role: 'system', content: system || '你是一个有帮助的AI。' }, ...msgs.map(m => ({ role: m.role, content: m.content }))];
-                state.isStreaming = true;
-                state.abortController = new AbortController();
-                updateUI();
-                const container = document.getElementById('messagesContainer');
-                const streamDiv = document.createElement('div');
-                streamDiv.className = 'message assistant';
-                streamDiv.innerHTML = '<div class="msg-bubble"><span class="stream-content"></span><span class="cursor">|</span></div>';
-                container.appendChild(streamDiv);
-                try {
-                    const resp = await fetch('https://api.deepseek.com/chat/completions', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.apiKey}` },
-                        body: JSON.stringify({ model: 'deepseek-chat', messages: apiMsgs, stream: true }),
-                        signal: state.abortController.signal,
-                    });
-                    if (!resp.ok) throw new Error((await resp.json()).error?.message || `HTTP ${resp.status}`);
-                    const reader = resp.body.getReader();
-                    const decoder = new TextDecoder();
-                    let full = '', buffer = '';
-                    while (true) {
-                        const { done, value } = await reader.read();
-                        if (done) break;
-                        buffer += decoder.decode(value, { stream: true });
-                        const lines = buffer.split('\n');
-                        buffer = lines.pop() || '';
-                        for (const line of lines) {
-                            if (!line.trim() || !line.startsWith('data:')) continue;
-                            const data = line.slice(5).trim();
-                            if (data === '[DONE]') continue;
-                            try {
-                                const j = JSON.parse(data);
-                                full += j.choices?.[0]?.delta?.content || '';
-                                streamDiv.querySelector('.stream-content').textContent = full;
-                                container.scrollTop = container.scrollHeight;
-                            } catch (e) {}
-                        }
-                    }
-                    streamDiv.querySelector('.cursor').remove();
-                    streamDiv.querySelector('.msg-bubble').textContent = full;
-                    const updated = getMsgs();
-                    updated.push({ role: 'assistant', content: full });
-                    setMsgs(updated);
-                } catch (e) {
-                    streamDiv.remove();
-                    if (e.name !== 'AbortError') toast('错误: ' + e.message, 'error');
-                } finally {
-                    state.isStreaming = false;
-                    state.abortController = null;
-                    updateUI();
-                }
-            }
+    if (state.isStreaming) return;
+    const msgs = getMsgs();
+    if (msgs.length && msgs[msgs.length-1].role === 'assistant') msgs.pop();
+    if (!msgs.length || msgs[msgs.length-1].role !== 'user') return;
+    setMsgs(msgs);
+    updateUI();
 
+    const now = new Date();
+    const timeHint = `当前时间：${now.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}（北京时间）。请根据此时间回答，但不要在回复中直接提及此时间信息。`;
+    const system = [timeHint, state.globalPrompt, getAgent()?.surfacePrompt || ''].filter(Boolean).join('\n\n');
+    const apiMsgs = [{ role: 'system', content: system || '你是一个有帮助的AI。' }, ...msgs.map(m => ({ role: m.role, content: m.content }))];
+
+    state.isStreaming = true;
+    state.abortController = new AbortController();
+    updateUI();
+    const container = $('messagesContainer');
+    const streamDiv = document.createElement('div');
+    streamDiv.className = 'message assistant';
+    streamDiv.innerHTML = '<div class="msg-bubble"><span class="stream-content"></span><span class="cursor">|</span></div>';
+    container.appendChild(streamDiv);
+    try {
+        const resp = await fetch('https://api.deepseek.com/chat/completions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.apiKey}` },
+            body: JSON.stringify({ model: 'deepseek-chat', messages: apiMsgs, stream: true }),
+            signal: state.abortController.signal,
+        });
+        if (!resp.ok) throw new Error((await resp.json().catch(()=>{})).error?.message || `HTTP ${resp.status}`);
+        const reader = resp.body.getReader();
+        const decoder = new TextDecoder();
+        let full = '', buffer = '';
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+            for (const line of lines) {
+                if (!line.trim() || !line.startsWith('data:')) continue;
+                const data = line.slice(5).trim();
+                if (data === '[DONE]') continue;
+                try {
+                    const j = JSON.parse(data);
+                    full += j.choices?.[0]?.delta?.content || '';
+                    streamDiv.querySelector('.stream-content').textContent = full;
+                    container.scrollTop = container.scrollHeight;
+                } catch(e) {}
+            }
+        }
+        streamDiv.querySelector('.cursor').remove();
+        streamDiv.querySelector('.msg-bubble').textContent = full;
+        const updated = getMsgs();
+        updated.push({ role: 'assistant', content: full });
+        setMsgs(updated);
+    } catch (e) {
+        streamDiv.remove();
+        if (e.name !== 'AbortError') toast('错误: ' + e.message, 'error');
+    } finally {
+        state.isStreaming = false;
+        state.abortController = null;
+        updateUI();
+    }
+}
             function undo() {
                 if (state.isStreaming) { state.abortController?.abort(); return; }
                 const msgs = getMsgs();
