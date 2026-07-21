@@ -439,135 +439,128 @@
 
             // ==================== 核心聊天逻辑（含时间注入、摘要记忆、文件处理） ====================
             async function sendMessage() {
-                if (state.isStreaming || !state.apiKey || !state.currentAgentId) return;
-                const input = $('messageInput');
-                const content = input.value.trim();
-                if (!content && !pendingFiles.length) return;
+    if (state.isStreaming || !state.apiKey || !state.currentAgentId) return;
+    const input = $('messageInput');
+    const content = input.value.trim();
+    if (!content && !pendingFiles.length) return;
 
-                // 处理文件
-                let finalContent = content;
-                if (pendingFiles.length > 0) {
-                    const fileParts = [];
-                    for (const f of pendingFiles) {
-                        if (f.type === 'image') {
-                            fileParts.push(`[用户上传的图片: ${f.name}，Base64数据长度: ${f.dataUrl.length} 字符。如需识别图片内容，请切换到视觉模型。]`);
-                        } else {
-                            fileParts.push(`[文件 ${f.name} 的内容开始]\n${f.content}\n[文件 ${f.name} 内容结束]`);
-                        }
-                    }
-                    finalContent = `${content}\n\n${fileParts.join('\n\n')}`;
-                    pendingFiles = []; // 清空
-                }
+    // 暂存图片，之后要用
+    const imagesForVision = pendingFiles.filter(f => f.type === 'image').map(f => ({ dataUrl: f.dataUrl, name: f.name }));
 
-                const msgs = getMsgs();
-                msgs.push({ role: 'user', content: finalContent });
-                setMsgs(msgs);
-                input.value = '';
-                input.style.height = 'auto';
-                updateUI();
-
-                state.isStreaming = true;
-                state.abortController = new AbortController();
-                updateUI();
-
-                // 注入时间
-                const now = new Date();
-                const dateStr = now.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
-                const timeStr = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
-                const timeHint = `【重要】现在是${timeStr}，日期是${dateStr}（北京时间）。你必须以这个时间为准，忽略对话历史中任何与此矛盾的时间表述，历史中的时间信息可能是错误的。当用户询问时间时，用符合你人设的语气自然回答，不要刻意加戏也不要刻意回避。`;
-               
-                // 摘要记忆优化
-                let processedMsgs = msgs;
-                if (msgs.length > 10) {
-                    processedMsgs = await summarizeOldMessages(msgs, 6);
-                }
-
-                const system = [timeHint, state.globalPrompt, getAgent()?.surfacePrompt || ''].filter(Boolean).join('\n\n');
-                // 检查是否有图片需要发送
-                const hasImage = pendingFiles.some(f => f.type === 'image');
-                
-                let apiMsgs;
-                if (hasImage) {
-                    // 视觉模式：发送当前文字+图片，暂不发送历史对话（避免格式冲突）
-                    const userContent = [];
-                    if (finalContent) {
-                        userContent.push({ type: 'text', text: finalContent });
-                    }
-                    for (const f of pendingFiles) {
-                        if (f.type === 'image') {
-                            userContent.push({
-                                type: 'image_url',
-                                image_url: { url: f.dataUrl }
-                            });
-                        }
-                    }
-                    apiMsgs = [
-                        { role: 'system', content: system || '你是一个有帮助的AI。' },
-                        { role: 'user', content: userContent }
-                    ];
-                } else {
-                    // 纯文本模式：发送完整历史
-                    apiMsgs = [
-                        { role: 'system', content: system || '你是一个有帮助的AI。' },
-                        ...processedMsgs.map(m => ({ role: m.role, content: m.content }))
-                    ];
-                }
-
-                const container = $('messagesContainer');
-                const streamDiv = document.createElement('div');
-                streamDiv.className = 'message assistant';
-                streamDiv.innerHTML = '<div class="msg-bubble"><span class="stream-content"></span><span class="cursor">|</span></div>';
-                container.appendChild(streamDiv);
-                container.scrollTop = container.scrollHeight;
-
-                try {
-                    const resp = await fetch('https://api.deepseek.com/chat/completions', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.apiKey}` },
-                        body: JSON.stringify({ model: 'deepseek-chat', messages: apiMsgs, stream: true }),
-                        signal: state.abortController.signal,
-                    });
-                    if (!resp.ok) {
-                        const err = await resp.json().catch(() => ({}));
-                        throw new Error(err.error?.message || `请求失败 (${resp.status})`);
-                    }
-                    const reader = resp.body.getReader();
-                    const decoder = new TextDecoder();
-                    let full = '', buffer = '';
-                    while (true) {
-                        const { done, value } = await reader.read();
-                        if (done) break;
-                        buffer += decoder.decode(value, { stream: true });
-                        const lines = buffer.split('\n');
-                        buffer = lines.pop() || '';
-                        for (const line of lines) {
-                            if (!line.trim() || !line.startsWith('data:')) continue;
-                            const data = line.slice(5).trim();
-                            if (data === '[DONE]') continue;
-                            try {
-                                const j = JSON.parse(data);
-                                full += j.choices?.[0]?.delta?.content || '';
-                                streamDiv.querySelector('.stream-content').textContent = full;
-                                container.scrollTop = container.scrollHeight;
-                            } catch(e) {}
-                        }
-                    }
-                    streamDiv.querySelector('.cursor').remove();
-                    streamDiv.querySelector('.msg-bubble').textContent = full;
-                    const updated = getMsgs();
-                    updated.push({ role: 'assistant', content: full });
-                    setMsgs(updated);
-                } catch (e) {
-                    streamDiv.remove();
-                    if (e.name !== 'AbortError') toast('错误: ' + e.message, 'error');
-                    else toast('已取消生成', 'info');
-                } finally {
-                    state.isStreaming = false;
-                    state.abortController = null;
-                    updateUI();
-                }
+    // 处理文件内容
+    let finalContent = content;
+    if (pendingFiles.length > 0) {
+        const fileParts = [];
+        for (const f of pendingFiles) {
+            if (f.type === 'image') {
+                fileParts.push(`[图片: ${f.name}]`);
+            } else {
+                fileParts.push(`[文件 ${f.name} 的内容开始]\n${f.content}\n[文件 ${f.name} 内容结束]`);
             }
+        }
+        finalContent = `${content}\n\n${fileParts.join('\n\n')}`;
+        pendingFiles = []; // 清空
+    }
 
+    const msgs = getMsgs();
+    msgs.push({ role: 'user', content: finalContent });
+    setMsgs(msgs);
+    input.value = '';
+    input.style.height = 'auto';
+    updateUI();
+
+    state.isStreaming = true;
+    state.abortController = new AbortController();
+    updateUI();
+
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+    const timeStr = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+    const timeHint = `现在的时间是${timeStr}，日期是${dateStr}（北京时间）。你必须以这个时间为准，忽略对话历史中任何与此矛盾的时间表述，历史中的时间信息可能是错误的。当用户询问时间时，用符合你人设的语气自然回答。不要刻意加戏也不要刻意回避。`;
+
+    let processedMsgs = msgs;
+    if (msgs.length > 10) {
+        processedMsgs = await summarizeOldMessages(msgs, 6);
+    }
+
+    const system = [timeHint, state.globalPrompt, getAgent()?.surfacePrompt || ''].filter(Boolean).join('\n\n');
+
+    // 构造消息
+    const hasImage = imagesForVision.length > 0;
+    let apiMsgs;
+    if (hasImage) {
+        const userContent = [];
+        if (content) {
+            userContent.push({ type: 'text', text: content });
+        }
+        for (const img of imagesForVision) {
+            userContent.push({ type: 'image_url', image_url: { url: img.dataUrl } });
+        }
+        apiMsgs = [
+            { role: 'system', content: system || '你是一个有帮助的AI。' },
+            { role: 'user', content: userContent }
+        ];
+    } else {
+        apiMsgs = [
+            { role: 'system', content: system || '你是一个有帮助的AI。' },
+            ...processedMsgs.map(m => ({ role: m.role, content: m.content }))
+        ];
+    }
+
+    const container = $('messagesContainer');
+    const streamDiv = document.createElement('div');
+    streamDiv.className = 'message assistant';
+    streamDiv.innerHTML = '<div class="msg-bubble"><span class="stream-content"></span><span class="cursor">|</span></div>';
+    container.appendChild(streamDiv);
+    container.scrollTop = container.scrollHeight;
+
+    try {
+        const resp = await fetch('https://api.deepseek.com/chat/completions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.apiKey}` },
+            body: JSON.stringify({ model: 'deepseek-chat', messages: apiMsgs, stream: true }),
+            signal: state.abortController.signal,
+        });
+        if (!resp.ok) {
+            const err = await resp.json().catch(() => ({}));
+            throw new Error(err.error?.message || `请求失败 (${resp.status})`);
+        }
+        const reader = resp.body.getReader();
+        const decoder = new TextDecoder();
+        let full = '', buffer = '';
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+            for (const line of lines) {
+                if (!line.trim() || !line.startsWith('data:')) continue;
+                const data = line.slice(5).trim();
+                if (data === '[DONE]') continue;
+                try {
+                    const j = JSON.parse(data);
+                    full += j.choices?.[0]?.delta?.content || '';
+                    streamDiv.querySelector('.stream-content').textContent = full;
+                    container.scrollTop = container.scrollHeight;
+                } catch(e) {}
+            }
+        }
+        streamDiv.querySelector('.cursor').remove();
+        streamDiv.querySelector('.msg-bubble').textContent = full;
+        const updated = getMsgs();
+        updated.push({ role: 'assistant', content: full });
+        setMsgs(updated);
+    } catch (e) {
+        streamDiv.remove();
+        if (e.name !== 'AbortError') toast('错误: ' + e.message, 'error');
+        else toast('已取消生成', 'info');
+    } finally {
+        state.isStreaming = false;
+        state.abortController = null;
+        updateUI();
+    }
+}
             async function regenerate() {
                 if (state.isStreaming) return;
                 const msgs = getMsgs();
