@@ -484,34 +484,34 @@
 
                 const system = [timeHint, state.globalPrompt, getAgent()?.surfacePrompt || ''].filter(Boolean).join('\n\n');
                 // 检查是否有图片需要发送
-const hasImage = pendingFiles.some(f => f.type === 'image');
-
-let apiMsgs;
-if (hasImage) {
-    // 视觉模式：发送当前文字+图片，暂不发送历史对话（避免格式冲突）
-    const userContent = [];
-    if (finalContent) {
-        userContent.push({ type: 'text', text: finalContent });
-    }
-    for (const f of pendingFiles) {
-        if (f.type === 'image') {
-            userContent.push({
-                type: 'image_url',
-                image_url: { url: f.dataUrl }
-            });
-        }
-    }
-    apiMsgs = [
-        { role: 'system', content: system || '你是一个有帮助的AI。' },
-        { role: 'user', content: userContent }
-    ];
-} else {
-    // 纯文本模式：发送完整历史
-    apiMsgs = [
-        { role: 'system', content: system || '你是一个有帮助的AI。' },
-        ...processedMsgs.map(m => ({ role: m.role, content: m.content }))
-    ];
-}
+                const hasImage = pendingFiles.some(f => f.type === 'image');
+                
+                let apiMsgs;
+                if (hasImage) {
+                    // 视觉模式：发送当前文字+图片，暂不发送历史对话（避免格式冲突）
+                    const userContent = [];
+                    if (finalContent) {
+                        userContent.push({ type: 'text', text: finalContent });
+                    }
+                    for (const f of pendingFiles) {
+                        if (f.type === 'image') {
+                            userContent.push({
+                                type: 'image_url',
+                                image_url: { url: f.dataUrl }
+                            });
+                        }
+                    }
+                    apiMsgs = [
+                        { role: 'system', content: system || '你是一个有帮助的AI。' },
+                        { role: 'user', content: userContent }
+                    ];
+                } else {
+                    // 纯文本模式：发送完整历史
+                    apiMsgs = [
+                        { role: 'system', content: system || '你是一个有帮助的AI。' },
+                        ...processedMsgs.map(m => ({ role: m.role, content: m.content }))
+                    ];
+                }
 
                 const container = $('messagesContainer');
                 const streamDiv = document.createElement('div');
