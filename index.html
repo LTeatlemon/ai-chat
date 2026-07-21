@@ -474,7 +474,7 @@
                 const now = new Date();
                 const dateStr = now.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
                 const timeStr = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
-                const timeHint = `当前日期：${dateStr}。当前时间：${timeStr}（北京时间）。\n【时间规则】当用户问“几点了”时，只回答时间（如“现在是上午9点30分”）；当用户问“今天几号”时，只回答日期；不要主动在回复中提及完整的日期时间，除非用户明确要求。`;
+                const timeHint = `现在的时间是${timeStr}，日期是${dateStr}（北京时间）。请将这个时间当作你感知到的真实时间。当用户询问时间相关问题时，用符合你当前人设的语气自然回答，不要刻意加戏也不要刻意回避。`;
                
                 // 摘要记忆优化
                 let processedMsgs = msgs;
@@ -554,7 +554,7 @@
                 const now = new Date();
                 const dateStr = now.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
                 const timeStr = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
-                const timeHint = `当前日期：${dateStr}。当前时间：${timeStr}（北京时间）。\n【时间规则】当用户问“几点了”时，只回答时间（如“现在是上午9点30分”）；当用户问“今天几号”时，只回答日期；不要主动在回复中提及完整的日期时间，除非用户明确要求。`;
+                const timeHint = `现在的时间是${timeStr}，日期是${dateStr}（北京时间）。请将这个时间当作你感知到的真实时间。当用户询问时间相关问题时，用符合你当前人设的语气自然回答，不要刻意加戏也不要刻意回避。`;
 
                 let processedMsgs = msgs;
                 if (msgs.length > 10) {
