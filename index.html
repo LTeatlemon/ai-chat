@@ -375,7 +375,7 @@
                         body: JSON.stringify({
                             model: 'deepseek-chat',
                             messages: [
-                                { role: 'system', content: '请将以下对话历史压缩为一段简洁的摘要，保留关键信息和用户需求。' },
+                                { role: 'system', content: '请将以下对话历史压缩为一段简洁的摘要，保留关键信息和用户需求。注意：不要保留任何时间、日期相关的表述，因为当前时间已改变。' },
                                 { role: 'user', content: oldText }
                             ],
                             stream: false,
@@ -474,7 +474,7 @@
                 const now = new Date();
                 const dateStr = now.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
                 const timeStr = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
-                const timeHint = `现在的时间是${timeStr}，日期是${dateStr}（北京时间）。请将这个时间当作你感知到的真实时间。当用户询问时间相关问题时，用符合你当前人设的语气自然回答，不要刻意加戏也不要刻意回避。`;
+                const timeHint = `【重要】现在是${timeStr}，日期是${dateStr}（北京时间）。你必须以这个时间为准，忽略对话历史中任何与此矛盾的时间表述，历史中的时间信息可能是错误的。当用户询问时间时，用符合你人设的语气自然回答，不要刻意加戏也不要刻意回避。`;
                
                 // 摘要记忆优化
                 let processedMsgs = msgs;
@@ -554,7 +554,7 @@
                 const now = new Date();
                 const dateStr = now.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
                 const timeStr = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
-                const timeHint = `现在的时间是${timeStr}，日期是${dateStr}（北京时间）。请将这个时间当作你感知到的真实时间。当用户询问时间相关问题时，用符合你当前人设的语气自然回答，不要刻意加戏也不要刻意回避。`;
+                const timeHint = `【重要】现在是${timeStr}，日期是${dateStr}（北京时间）。你必须以这个时间为准，忽略对话历史中任何与此矛盾的时间表述，历史中的时间信息可能是错误的。当用户询问时间时，用符合你人设的语气自然回答，不要刻意加戏也不要刻意回避。`;
 
                 let processedMsgs = msgs;
                 if (msgs.length > 10) {
