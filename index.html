@@ -370,124 +370,190 @@
 
             // 发送消息核心
             async function sendMessage() {
-                if (state.isStreaming || !state.apiKey || !state.currentAgentId) return;
-                const input = $('messageInput');
-                const content = input.value.trim();
-                if (!content && !pendingFiles.length) return;
+    if (state.isStreaming || !state.apiKey || !state.currentAgentId) return;
+    const input = $('messageInput');
+    const content = input.value.trim();
+    if (!content && !pendingFiles.length) return;
 
-                const imagesForVision = [];
-                if (pendingFiles.length > 0) {
-                    for (const f of pendingFiles) {
-                        if (f.type === 'image') {
-                            const compressed = await compressImage(f.file, 600, 0.6);
-                            imagesForVision.push({ dataUrl: compressed });
-                        }
-                    }
-                }
+    // 提取图片
+    const imagesForVision = pendingFiles
+        .filter(f => f.type === 'image' && f.dataUrl)
+        .map(f => ({ dataUrl: f.dataUrl }));
 
-                let finalContent = content;
-                if (pendingFiles.length > 0) {
-                    const fileParts = [];
-                    for (const f of pendingFiles) {
-                        if (f.type === 'image') fileParts.push(`[图片: ${f.name}]`);
-                        else fileParts.push(`[文件 ${f.name}]\n${f.content}`);
-                    }
-                    finalContent = `${content}\n\n${fileParts.join('\n\n')}`;
-                    pendingFiles = [];
-                }
+    // 构造文本内容
+    let finalContent = content;
+    if (pendingFiles.length > 0) {
+        const fileParts = [];
+        for (const f of pendingFiles) {
+            if (f.type === 'image') fileParts.push(`[图片: ${f.name}]`);
+            else fileParts.push(`[文件 ${f.name}]\n${f.content}`);
+        }
+        finalContent = `${content}\n\n${fileParts.join('\n\n')}`;
+        pendingFiles = [];
+    }
 
-                const msgs = getMsgs();
-                msgs.push({ role: 'user', content: finalContent });
-                setMsgs(msgs);
-                input.value = ''; input.style.height = 'auto';
+    const msgs = getMsgs();
+    msgs.push({ role: 'user', content: finalContent });
+    setMsgs(msgs);
+    input.value = ''; input.style.height = 'auto';
+    updateUI();
+
+    state.isStreaming = true;
+    state.abortController = new AbortController();
+    updateUI();
+
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+    const timeStr = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+    const timeHint = `现在的时间是${timeStr}，日期是${dateStr}（北京时间）。你必须以这个时间为准，忽略对话历史中任何与此矛盾的时间表述，历史中的时间信息可能是错误的。当用户询问时间时，用符合你人设的语气自然回答。不要刻意加戏也不要刻意回避。`;
+
+    let processedMsgs = msgs;
+    if (msgs.length > 10) {
+        processedMsgs = await summarizeOldMessages(msgs, 6);
+    }
+
+    const system = [timeHint, state.globalPrompt, getAgent()?.surfacePrompt || ''].filter(Boolean).join('\n\n');
+    const hasImage = imagesForVision.length > 0;
+    let apiMsgs;
+
+    // 构建消息体
+    if (hasImage) {
+        const userContent = [];
+        if (content) userContent.push({ type: 'text', text: content });
+        for (const img of imagesForVision) {
+            userContent.push({
+                type: 'image_url',
+                image_url: { url: img.dataUrl }
+            });
+        }
+        apiMsgs = [
+            { role: 'system', content: system || '你是一个有帮助的AI。' },
+            { role: 'user', content: userContent }
+        ];
+    } else {
+        apiMsgs = [
+            { role: 'system', content: system || '你是一个有帮助的AI。' },
+            ...processedMsgs.map(m => ({ role: m.role, content: m.content }))
+        ];
+    }
+
+    // 选择模型：有图片用 flash（响应快），无图片保持 chat
+    const modelName = hasImage ? 'deepseek-v4-flash' : 'deepseek-chat';
+
+    const container = $('messagesContainer');
+    const streamDiv = document.createElement('div');
+    streamDiv.className = 'message assistant';
+    streamDiv.innerHTML = '<div class="msg-bubble"><span class="stream-content"></span><span class="cursor">|</span></div>';
+    container.appendChild(streamDiv);
+    container.scrollTop = container.scrollHeight;
+
+    try {
+        const resp = await fetch('https://api.deepseek.com/chat/completions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.apiKey}` },
+            body: JSON.stringify({ model: modelName, messages: apiMsgs, stream: true }),
+            signal: state.abortController.signal,
+        });
+
+        if (!resp.ok) {
+            const errText = await resp.text();
+            console.error('❌ 视觉请求失败:', errText);
+            // 降级处理：如果视觉模型还是报错，改为纯文本描述
+            if (hasImage) {
+                toast('图片识别失败，已转为文本描述', 'info');
+                // 重新构造纯文本消息，将图片信息作为文本
+                const imageDesc = imagesForVision.map((img, i) => `[用户上传了第${i+1}张图片，请用想象力描述可能的内容]`).join('\n');
+                const fallbackContent = `${content}\n\n${imageDesc}`;
+                // 更新用户消息内容（重新发送）
+                const updatedMsgs = getMsgs();
+                updatedMsgs.pop(); // 移除刚才添加的用户消息
+                updatedMsgs.push({ role: 'user', content: fallbackContent });
+                setMsgs(updatedMsgs);
+                // 回退到纯文本模型
+                const fallbackApiMsgs = [
+                    { role: 'system', content: system || '你是一个有帮助的AI。' },
+                    ...updatedMsgs.map(m => ({ role: m.role, content: m.content }))
+                ];
+                // 递归调用本身（但不再携带图片）
+                state.isStreaming = false;
                 updateUI();
-
-                state.isStreaming = true;
-                state.abortController = new AbortController();
-                updateUI();
-
-                const now = new Date();
-                const dateStr = now.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
-                const timeStr = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
-                const timeHint = `现在的时间是${timeStr}，日期是${dateStr}（北京时间）。请将这个时间当作你感知到的真实时间。当用户询问时间相关问题时，用符合你当前人设的语气自然回答。`;
-
-                let processedMsgs = msgs;
-                if (msgs.length > 10) processedMsgs = await summarizeOldMessages(msgs, 6);
-
-                const system = [timeHint, state.globalPrompt, getAgent()?.surfacePrompt || ''].filter(Boolean).join('\n\n');
-                const hasImage = imagesForVision.length > 0;
-                let apiMsgs;
-
-                if (hasImage) {
-                    const userContent = [];
-                    if (content) userContent.push({ type: 'text', text: content });
-                    for (const img of imagesForVision) {
-                        userContent.push({ type: 'image_url', image_url: { url: img.dataUrl } });
+                // 直接重新发送
+                const fallbackResp = await fetch('https://api.deepseek.com/chat/completions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.apiKey}` },
+                    body: JSON.stringify({ model: 'deepseek-chat', messages: fallbackApiMsgs, stream: true }),
+                    signal: state.abortController.signal,
+                });
+                if (!fallbackResp.ok) throw new Error('降级请求也失败');
+                // 处理降级响应（复用后续流式读取）
+                const reader = fallbackResp.body.getReader();
+                const decoder = new TextDecoder();
+                let full = '', buffer = '';
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop() || '';
+                    for (const line of lines) {
+                        if (!line.trim() || !line.startsWith('data:')) continue;
+                        const data = line.slice(5).trim();
+                        if (data === '[DONE]') continue;
+                        try {
+                            const j = JSON.parse(data);
+                            full += j.choices?.[0]?.delta?.content || '';
+                            streamDiv.querySelector('.stream-content').textContent = full;
+                            container.scrollTop = container.scrollHeight;
+                        } catch(e) {}
                     }
-                    apiMsgs = [
-                        { role: 'system', content: system || '你是一个有帮助的AI。' },
-                        { role: 'user', content: userContent }
-                    ];
-                } else {
-                    apiMsgs = [
-                        { role: 'system', content: system || '你是一个有帮助的AI。' },
-                        ...processedMsgs.map(m => ({ role: m.role, content: m.content }))
-                    ];
                 }
-
-                const container = $('messagesContainer');
-                const streamDiv = document.createElement('div');
-                streamDiv.className = 'message assistant';
-                streamDiv.innerHTML = '<div class="msg-bubble"><span class="stream-content"></span><span class="cursor">|</span></div>';
-                container.appendChild(streamDiv);
-                container.scrollTop = container.scrollHeight;
-
-                try {
-                    const modelName = hasImage ? 'deepseek-vl' : 'deepseek-chat';
-                    const resp = await fetch('https://api.deepseek.com/chat/completions', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.apiKey}` },
-                        body: JSON.stringify({ model: modelName, messages: apiMsgs, stream: true }),
-                        signal: state.abortController.signal,
-                    });
-                    if (!resp.ok) {
-                        const errText = await resp.text();
-                        console.error('API错误:', errText);
-                        throw new Error(`请求失败 (${resp.status})`);
-                    }
-                    const reader = resp.body.getReader();
-                    const decoder = new TextDecoder();
-                    let full = '', buffer = '';
-                    while (true) {
-                        const { done, value } = await reader.read();
-                        if (done) break;
-                        buffer += decoder.decode(value, { stream: true });
-                        const lines = buffer.split('\n');
-                        buffer = lines.pop() || '';
-                        for (const line of lines) {
-                            if (!line.trim() || !line.startsWith('data:')) continue;
-                            const data = line.slice(5).trim();
-                            if (data === '[DONE]') continue;
-                            try {
-                                const j = JSON.parse(data);
-                                full += j.choices?.[0]?.delta?.content || '';
-                                streamDiv.querySelector('.stream-content').textContent = full;
-                                container.scrollTop = container.scrollHeight;
-                            } catch(e) {}
-                        }
-                    }
-                    streamDiv.querySelector('.cursor').remove();
-                    streamDiv.querySelector('.msg-bubble').textContent = full;
-                    const updated = getMsgs();
-                    updated.push({ role: 'assistant', content: full });
-                    setMsgs(updated);
-                } catch (e) {
-                    streamDiv.remove();
-                    if (e.name !== 'AbortError') toast('错误: ' + e.message, 'error');
-                } finally {
-                    state.isStreaming = false; state.abortController = null; updateUI();
-                }
+                streamDiv.querySelector('.cursor').remove();
+                streamDiv.querySelector('.msg-bubble').textContent = full;
+                const finalMsgs = getMsgs();
+                finalMsgs.push({ role: 'assistant', content: full });
+                setMsgs(finalMsgs);
+                return; // 降级完成，退出
+            } else {
+                throw new Error(`请求失败 (${resp.status})`);
             }
+        }
+
+        // 正常流式读取
+        const reader = resp.body.getReader();
+        const decoder = new TextDecoder();
+        let full = '', buffer = '';
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+            for (const line of lines) {
+                if (!line.trim() || !line.startsWith('data:')) continue;
+                const data = line.slice(5).trim();
+                if (data === '[DONE]') continue;
+                try {
+                    const j = JSON.parse(data);
+                    full += j.choices?.[0]?.delta?.content || '';
+                    streamDiv.querySelector('.stream-content').textContent = full;
+                    container.scrollTop = container.scrollHeight;
+                } catch(e) {}
+            }
+        }
+        streamDiv.querySelector('.cursor').remove();
+        streamDiv.querySelector('.msg-bubble').textContent = full;
+        const updated = getMsgs();
+        updated.push({ role: 'assistant', content: full });
+        setMsgs(updated);
+    } catch (e) {
+        streamDiv.remove();
+        if (e.name !== 'AbortError') toast('错误: ' + e.message, 'error');
+    } finally {
+        state.isStreaming = false;
+        state.abortController = null;
+        updateUI();
+    }
+}
 
             async function regenerate() {
                 if (state.isStreaming) return;
@@ -519,7 +585,7 @@
                     const resp = await fetch('https://api.deepseek.com/chat/completions', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.apiKey}` },
-                        body: JSON.stringify({ model: 'deepseek-chat', messages: apiMsgs, stream: true }),
+                        body: JSON.stringify({ model: 'deepseek-v4-flash', messages: apiMsgs, stream: true }),
                         signal: state.abortController.signal,
                     });
                     if (!resp.ok) throw new Error(`请求失败 (${resp.status})`);
