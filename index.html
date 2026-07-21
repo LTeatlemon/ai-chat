@@ -443,10 +443,11 @@
                 container.scrollTop = container.scrollHeight;
 
                 try {
+                    const modelName = hasImage ? 'deepseek-vl' : 'deepseek-chat';
                     const resp = await fetch('https://api.deepseek.com/chat/completions', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.apiKey}` },
-                        body: JSON.stringify({ model: 'deepseek-chat', messages: apiMsgs, stream: true }),
+                        body: JSON.stringify({ model: modelName, messages: apiMsgs, stream: true }),
                         signal: state.abortController.signal,
                     });
                     if (!resp.ok) {
